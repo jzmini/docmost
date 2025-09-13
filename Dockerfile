@@ -3,10 +3,14 @@ LABEL org.opencontainers.image.source="https://github.com/docmost/docmost"
 
 FROM base AS builder
 
+# Install build dependencies for native modules
+RUN apk add --no-cache python3 make g++ py3-pip
+
 WORKDIR /app
 
 COPY . .
 
+RUN npm config set registry https://registry.npmmirror.com
 RUN npm install -g pnpm@10.4.0
 RUN pnpm install --frozen-lockfile
 RUN pnpm build
@@ -33,11 +37,16 @@ COPY --from=builder /app/pnpm*.yaml /app/
 # Copy patches
 COPY --from=builder /app/patches /app/patches
 
+# Set npm registry to use mirror for faster downloads
+RUN npm config set registry https://registry.npmmirror.com
 RUN npm install -g pnpm@10.4.0
 
 RUN chown -R node:node /app
 
 USER node
+
+# Configure pnpm to use the mirror registry as node user
+RUN pnpm config set registry https://registry.npmmirror.com
 
 RUN pnpm install --frozen-lockfile --prod
 
