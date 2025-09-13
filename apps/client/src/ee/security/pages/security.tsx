@@ -46,11 +46,12 @@ export default function Security() {
         <>
           <EnforceSso />
           <Divider my="lg" />
-          <CreateSsoProvider />
-          <Divider size={0} my="lg" />
         </>
       ) : null}
 
+      <CreateSsoProvider />
+      <Divider size={0} my="lg" />
+      
       <SsoProviderList />
     </>
   );

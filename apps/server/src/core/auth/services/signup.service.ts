@@ -23,6 +23,8 @@ export class SignupService {
   async signup(
     createUserDto: CreateUserDto,
     workspaceId: string,
+    role?: UserRole,
+    hasGeneratedPassword?: boolean,
     trx?: KyselyTransaction,
   ): Promise<User> {
     const userCheck = await this.userRepo.findByEmail(
@@ -44,6 +46,8 @@ export class SignupService {
           {
             ...createUserDto,
             workspaceId: workspaceId,
+            role: role,
+            hasGeneratedPassword: hasGeneratedPassword,
           },
           trx,
         );
@@ -52,7 +56,7 @@ export class SignupService {
         await this.workspaceService.addUserToWorkspace(
           user.id,
           workspaceId,
-          undefined,
+          role,
           trx,
         );
 

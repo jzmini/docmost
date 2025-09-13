@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { z } from "zod";
 import { useForm } from "@mantine/form";
 import { zodResolver } from "mantine-form-zod-resolver";
@@ -12,12 +12,18 @@ import {
   Textarea,
   Text,
   Accordion,
+  Alert,
+  Modal,
+  PasswordInput,
+  Divider,
 } from "@mantine/core";
 import classes from "@/ee/security/components/sso.module.css";
 import { IAuthProvider } from "@/ee/security/types/security.types.ts";
 import { useTranslation } from "react-i18next";
 import { useUpdateSsoProviderMutation } from "@/ee/security/queries/security-query.ts";
-import { IconInfoCircle } from "@tabler/icons-react";
+import { IconInfoCircle, IconCheck, IconX, IconUserCheck } from "@tabler/icons-react";
+import api from "@/lib/api-client";
+import { useDisclosure } from "@mantine/hooks";
 
 const ssoSchema = z.object({
   name: z.string().min(1, "Display name is required"),
@@ -43,6 +49,11 @@ interface SsoFormProps {
 export function SsoLDAPForm({ provider, onClose }: SsoFormProps) {
   const { t } = useTranslation();
   const updateSsoProviderMutation = useUpdateSsoProviderMutation();
+  const [testResult, setTestResult] = useState<{ success: boolean; message: string; userFound?: boolean } | null>(null);
+  const [isTesting, setIsTesting] = useState(false);
+  const [testModalOpened, { open: openTestModal, close: closeTestModal }] = useDisclosure(false);
+  const [testUsername, setTestUsername] = useState("");
+  const [testPassword, setTestPassword] = useState("");
 
   const form = useForm<SSOFormValues>({
     initialValues: {
@@ -61,6 +72,46 @@ export function SsoLDAPForm({ provider, onClose }: SsoFormProps) {
     },
     validate: zodResolver(ssoSchema),
   });
+
+  const handleTestConnection = async (includeUserAuth = false) => {
+    setIsTesting(true);
+    setTestResult(null);
+    
+    try {
+      const testData: any = {
+        ldapUrl: form.values.ldapUrl,
+        ldapBindDn: form.values.ldapBindDn,
+        ldapBindPassword: form.values.ldapBindPassword,
+        ldapBaseDn: form.values.ldapBaseDn,
+        ldapUserSearchFilter: form.values.ldapUserSearchFilter,
+        ldapTlsEnabled: form.values.ldapTlsEnabled,
+        ldapTlsCaCert: form.values.ldapTlsCaCert,
+      };
+
+      if (includeUserAuth && testUsername && testPassword) {
+        testData.testUsername = testUsername;
+        testData.testPassword = testPassword;
+      }
+      
+      const response = await api.post("/sso/ldap/test", testData);
+      setTestResult(response.data);
+      
+      if (includeUserAuth && response.data.success) {
+        closeTestModal();
+      }
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || 
+                          error.message || 
+                          "Connection test failed";
+      
+      setTestResult({
+        success: false,
+        message: errorMessage,
+      });
+    } finally {
+      setIsTesting(false);
+    }
+  };
 
   const handleSubmit = async (values: SSOFormValues) => {
     const ssoData: Partial<IAuthProvider> = {
@@ -106,9 +157,50 @@ export function SsoLDAPForm({ provider, onClose }: SsoFormProps) {
   };
 
   return (
-    <Box maw={600} mx="auto">
-      <form onSubmit={form.onSubmit(handleSubmit)}>
+    <>
+      <Modal
+        opened={testModalOpened}
+        onClose={closeTestModal}
+        title={t("Test User Authentication")}
+        size="md"
+      >
         <Stack>
+          <Text size="sm" c="dimmed">
+            {t("Enter LDAP user credentials to test authentication")}
+          </Text>
+          <TextInput
+            label={t("Username or Email")}
+            placeholder="user@example.com"
+            value={testUsername}
+            onChange={(e) => setTestUsername(e.target.value)}
+            required
+          />
+          <PasswordInput
+            label={t("Password")}
+            placeholder="••••••••"
+            value={testPassword}
+            onChange={(e) => setTestPassword(e.target.value)}
+            required
+          />
+          <Group mt="md" justify="flex-end">
+            <Button variant="default" onClick={closeTestModal}>
+              {t("Cancel")}
+            </Button>
+            <Button
+              onClick={() => handleTestConnection(true)}
+              loading={isTesting}
+              disabled={!testUsername || !testPassword}
+              leftSection={<IconUserCheck size={16} />}
+            >
+              {t("Test Authentication")}
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
+
+      <Box maw={600} mx="auto">
+        <form onSubmit={form.onSubmit(handleSubmit)}>
+          <Stack>
           <TextInput
             label={t("Display name")}
             placeholder="e.g Company LDAP"
@@ -216,13 +308,51 @@ export function SsoLDAPForm({ provider, onClose }: SsoFormProps) {
             />
           </Group>
 
-          <Group mt="md" justify="flex-end">
+          {testResult && (
+            <Alert
+              icon={testResult.success ? <IconCheck size={16} /> : <IconX size={16} />}
+              color={testResult.success ? "green" : "red"}
+              title={testResult.success ? t("Connection Successful") : t("Connection Failed")}
+              onClose={() => setTestResult(null)}
+              withCloseButton
+            >
+              <Text size="sm">{testResult.message || (testResult.success ? "LDAP connection test passed" : "LDAP connection test failed")}</Text>
+              {testResult.userFound !== undefined && (
+                <Text size="sm" mt="xs" fw={500}>
+                  {testResult.userFound 
+                    ? "✓ " + t("User authentication successful") 
+                    : "✗ " + t("User not found or authentication failed")}
+                </Text>
+              )}
+            </Alert>
+          )}
+
+          <Group mt="md" justify="space-between">
+            <Group>
+              <Button 
+                variant="default" 
+                onClick={() => handleTestConnection(false)}
+                loading={isTesting}
+                disabled={!form.values.ldapUrl || !form.values.ldapBindDn || !form.values.ldapBindPassword || !form.values.ldapBaseDn}
+              >
+                {t("Test Connection")}
+              </Button>
+              <Button 
+                variant="light" 
+                onClick={openTestModal}
+                disabled={!form.values.ldapUrl || !form.values.ldapBindDn || !form.values.ldapBindPassword || !form.values.ldapBaseDn}
+                leftSection={<IconUserCheck size={16} />}
+              >
+                {t("Test User Auth")}
+              </Button>
+            </Group>
             <Button type="submit" disabled={!form.isDirty()}>
               {t("Save")}
             </Button>
           </Group>
-        </Stack>
-      </form>
-    </Box>
+          </Stack>
+        </form>
+      </Box>
+    </>
   );
 }

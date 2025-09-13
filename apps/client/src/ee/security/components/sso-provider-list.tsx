@@ -18,6 +18,7 @@ import {
   IconDots,
   IconLock,
   IconPencil,
+  IconServer,
   IconTrash,
   IconX,
 } from "@tabler/icons-react";
@@ -93,6 +94,8 @@ export default function SsoProviderList() {
                       <Group gap="xs" wrap="nowrap">
                         {provider.type === SSO_PROVIDER.GOOGLE ? (
                           <GoogleIcon size={16} />
+                        ) : provider.type === SSO_PROVIDER.LDAP ? (
+                          <IconServer size={16} />
                         ) : (
                           <IconLock size={16} />
                         )}

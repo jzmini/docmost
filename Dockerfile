@@ -17,7 +17,8 @@ RUN pnpm build
 
 FROM base AS installer
 
-RUN apk add --no-cache curl bash
+# Install build dependencies for native modules and runtime tools
+RUN apk add --no-cache curl bash python3 make g++ py3-pip
 
 WORKDIR /app
 
