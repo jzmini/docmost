@@ -4,6 +4,7 @@ import {
   Inject,
   Injectable,
   NotFoundException,
+  Logger,
 } from '@nestjs/common';
 import { CreateGroupDto, DefaultGroup } from '../dto/create-group.dto';
 import { PaginationOptions } from '@docmost/db/pagination/pagination-options';
@@ -16,6 +17,8 @@ import { GroupUserService } from './group-user.service';
 
 @Injectable()
 export class GroupService {
+  private readonly logger = new Logger(GroupService.name);
+  
   constructor(
     private groupRepo: GroupRepo,
     @Inject(forwardRef(() => GroupUserService))
@@ -100,7 +103,9 @@ export class GroupService {
       throw new BadRequestException('You cannot update a default group');
     }
 
-    if (updateGroupDto.name) {
+    const updateData: any = {};
+    
+    if ('name' in updateGroupDto && updateGroupDto.name) {
       const existingGroup = await this.groupRepo.findByName(
         updateGroupDto.name,
         workspaceId,
@@ -111,17 +116,16 @@ export class GroupService {
       }
 
       group.name = updateGroupDto.name;
+      updateData.name = updateGroupDto.name;
     }
 
-    if (updateGroupDto.description) {
+    if ('description' in updateGroupDto) {
       group.description = updateGroupDto.description;
+      updateData.description = updateGroupDto.description;
     }
 
     await this.groupRepo.update(
-      {
-        name: updateGroupDto.name,
-        description: updateGroupDto.description,
-      },
+      updateData,
       group.id,
       workspaceId,
     );
@@ -133,10 +137,24 @@ export class GroupService {
     workspaceId: string,
     paginationOptions: PaginationOptions,
   ): Promise<PaginationResult<Group>> {
+    this.logger.log(`=== Fetching groups for workspace ${workspaceId} ===`);
+    this.logger.log(`Pagination: page ${paginationOptions.page}, limit ${paginationOptions.limit}`);
+    
     const groups = await this.groupRepo.getGroupsPaginated(
       workspaceId,
       paginationOptions,
     );
+    
+    const total = (groups.meta as any)?.total || 0;
+    this.logger.log(`Found ${groups.items?.length || 0} groups, total: ${total}`);
+    if (groups.items && groups.items.length > 0) {
+      groups.items.forEach((g: any) => {
+        this.logger.log(`  - Group: "${g.name}" (${g.id}), members: ${g.memberCount || 0}, default: ${g.isDefault}`);
+      });
+    } else {
+      this.logger.log('NO GROUPS FOUND IN DATABASE!');
+    }
+    
     return groups;
   }
 

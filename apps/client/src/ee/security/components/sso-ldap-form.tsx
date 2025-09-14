@@ -32,8 +32,10 @@ const ssoSchema = z.object({
   ldapBindPassword: z.string().min(1, "Bind password is required"),
   ldapBaseDn: z.string().min(1, "Base DN is required"),
   ldapUserSearchFilter: z.string().optional(),
+  ldapGroupSearchFilter: z.string().optional(),
   ldapTlsEnabled: z.boolean(),
   ldapTlsCaCert: z.string().optional(),
+  ldapReadonly: z.boolean(),
   isEnabled: z.boolean(),
   allowSignup: z.boolean(),
   groupSync: z.boolean(),
@@ -49,7 +51,7 @@ interface SsoFormProps {
 export function SsoLDAPForm({ provider, onClose }: SsoFormProps) {
   const { t } = useTranslation();
   const updateSsoProviderMutation = useUpdateSsoProviderMutation();
-  const [testResult, setTestResult] = useState<{ success: boolean; message: string; userFound?: boolean } | null>(null);
+  const [testResult, setTestResult] = useState<{ success: boolean; message: string; userFound?: boolean; groups?: string[] } | null>(null);
   const [isTesting, setIsTesting] = useState(false);
   const [testModalOpened, { open: openTestModal, close: closeTestModal }] = useDisclosure(false);
   const [testUsername, setTestUsername] = useState("");
@@ -64,8 +66,11 @@ export function SsoLDAPForm({ provider, onClose }: SsoFormProps) {
       ldapBaseDn: provider.ldapBaseDn || "",
       ldapUserSearchFilter:
         provider.ldapUserSearchFilter || "(mail={{username}})",
+      ldapGroupSearchFilter:
+        provider.ldapGroupSearchFilter || "(|(objectClass=groupOfNames)(objectClass=groupOfUniqueNames))",
       ldapTlsEnabled: provider.ldapTlsEnabled || false,
       ldapTlsCaCert: provider.ldapTlsCaCert || "",
+      ldapReadonly: provider.ldapReadonly !== undefined ? provider.ldapReadonly : true,
       isEnabled: provider.isEnabled,
       allowSignup: provider.allowSignup,
       groupSync: provider.groupSync || false,
@@ -84,6 +89,7 @@ export function SsoLDAPForm({ provider, onClose }: SsoFormProps) {
         ldapBindPassword: form.values.ldapBindPassword,
         ldapBaseDn: form.values.ldapBaseDn,
         ldapUserSearchFilter: form.values.ldapUserSearchFilter,
+        ldapGroupSearchFilter: form.values.ldapGroupSearchFilter,
         ldapTlsEnabled: form.values.ldapTlsEnabled,
         ldapTlsCaCert: form.values.ldapTlsCaCert,
       };
@@ -141,15 +147,11 @@ export function SsoLDAPForm({ provider, onClose }: SsoFormProps) {
     if (form.isDirty("ldapTlsCaCert")) {
       ssoData.ldapTlsCaCert = values.ldapTlsCaCert;
     }
-    if (form.isDirty("isEnabled")) {
-      ssoData.isEnabled = values.isEnabled;
-    }
-    if (form.isDirty("allowSignup")) {
-      ssoData.allowSignup = values.allowSignup;
-    }
-    if (form.isDirty("groupSync")) {
-      ssoData.groupSync = values.groupSync;
-    }
+    // Always send these important flags to ensure they're not lost
+    ssoData.isEnabled = values.isEnabled;
+    ssoData.allowSignup = values.allowSignup;
+    ssoData.groupSync = values.groupSync;
+    ssoData.ldapReadonly = values.ldapReadonly;
 
     await updateSsoProviderMutation.mutateAsync(ssoData);
     form.resetDirty();
@@ -244,6 +246,13 @@ export function SsoLDAPForm({ provider, onClose }: SsoFormProps) {
             {...form.getInputProps("ldapUserSearchFilter")}
           />
 
+          <TextInput
+            label="Group Search Filter"
+            description="LDAP filter to find groups (e.g., groupOfNames, posixGroup, or AD groups)"
+            placeholder="(|(objectClass=groupOfNames)(objectClass=groupOfUniqueNames))"
+            {...form.getInputProps("ldapGroupSearchFilter")}
+          />
+
           <Accordion variant="separated">
             <Accordion.Item value="advanced">
               <Accordion.Control icon={<IconInfoCircle size={20} />}>
@@ -282,6 +291,20 @@ export function SsoLDAPForm({ provider, onClose }: SsoFormProps) {
           </Accordion>
 
           <Group justify="space-between">
+            <div>
+              <Text size="sm">{t("LDAP Read-only")}</Text>
+              <Text size="xs" c="dimmed">
+                When enabled, users cannot change their password in Docmost
+              </Text>
+            </div>
+            <Switch
+              className={classes.switch}
+              checked={form.values.ldapReadonly}
+              {...form.getInputProps("ldapReadonly")}
+            />
+          </Group>
+
+          <Group justify="space-between">
             <div>{t("Group sync")}</div>
             <Switch
               className={classes.switch}
@@ -300,7 +323,12 @@ export function SsoLDAPForm({ provider, onClose }: SsoFormProps) {
           </Group>
 
           <Group justify="space-between">
-            <div>{t("Enabled")}</div>
+            <div>
+              <Text size="sm">{t("Enabled")}</Text>
+              <Text size="xs" c="dimmed">
+                Test the configuration before enabling. Status will update automatically.
+              </Text>
+            </div>
             <Switch
               className={classes.switch}
               checked={form.values.isEnabled}
@@ -323,6 +351,16 @@ export function SsoLDAPForm({ provider, onClose }: SsoFormProps) {
                     ? "✓ " + t("User authentication successful") 
                     : "✗ " + t("User not found or authentication failed")}
                 </Text>
+              )}
+              {testResult.groups && testResult.groups.length > 0 && (
+                <div style={{ marginTop: '8px' }}>
+                  <Text size="sm" fw={500} mb={4}>
+                    {t("Groups found")}: {testResult.groups.length}
+                  </Text>
+                  <Text size="xs" c="dimmed">
+                    {testResult.groups.join(', ')}
+                  </Text>
+                </div>
               )}
             </Alert>
           )}

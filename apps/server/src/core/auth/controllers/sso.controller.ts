@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -18,7 +19,8 @@ import { AuthWorkspace } from '../../../common/decorators/auth-workspace.decorat
 import { AuthUser } from '../../../common/decorators/auth-user.decorator';
 import { Workspace, User } from '@docmost/db/types/entity.types';
 import { AuthProviderRepo, CreateAuthProviderDto, UpdateAuthProviderDto } from '@docmost/db/repos/auth-provider/auth-provider.repo';
-import { LdapService, LdapLoginDto, LdapTestDto } from '../services/ldap.service';
+import { LdapService } from '../services/ldap.service';
+import { LdapLoginDto, LdapTestDto } from '../dto/ldap.dto';
 import { FastifyReply } from 'fastify';
 import { UserRole } from '../../../common/helpers/types/permission';
 import WorkspaceAbilityFactory from '../../casl/abilities/workspace-ability.factory';
@@ -52,6 +54,28 @@ export class SsoController {
   ) {
     this.checkWorkspaceManagePermission(user, workspace);
     const providers = await this.authProviderRepo.findByWorkspace(workspace.id);
+    
+    console.log('Providers from DB:', providers.map(p => ({
+      id: p.id,
+      type: p.type,
+      connectionStatus: p.connectionStatus,
+      lastCheckedAt: p.lastCheckedAt,
+      lastError: p.lastError
+    })));
+    
+    // Check connection status for LDAP providers when loading the page
+    for (const provider of providers) {
+      if (provider.type === 'ldap') {
+        // Check if status is stale (older than 5 minutes) or never checked
+        const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+        if (!provider.lastCheckedAt || new Date(provider.lastCheckedAt) < fiveMinutesAgo) {
+          // Run check in background (don't wait for it to complete)
+          this.ldapService.checkConnectionHealth(provider.id, workspace.id).catch(err => {
+            this.logger.error(`Failed to check LDAP connection: ${err.message}`);
+          });
+        }
+      }
+    }
     
     // Remove sensitive data
     return providers.map(provider => ({
@@ -167,6 +191,24 @@ export class SsoController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Post('providers/:id/check-connection')
+  async checkProviderConnection(
+    @Param('id') providerId: string,
+    @AuthWorkspace() workspace: Workspace,
+    @AuthUser() user: User,
+  ) {
+    this.checkWorkspaceManagePermission(user, workspace);
+    
+    const provider = await this.authProviderRepo.findById(providerId, workspace.id);
+    if (!provider || provider.type !== 'ldap') {
+      throw new BadRequestException('Invalid provider');
+    }
+    
+    const healthCheck = await this.ldapService.checkConnectionHealth(providerId, workspace.id);
+    return healthCheck;
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Post('ldap/test')
   async testLdapConnection(
     @Body() testDto: LdapTestDto,
@@ -184,7 +226,7 @@ export class SsoController {
   }
 
   private setAuthCookie(res: FastifyReply, authToken: string) {
-    const isProduction = (process as any).env.NODE_ENV === 'production';
+    const isProduction = process.env.NODE_ENV === 'production';
     
     res.setCookie('authToken', authToken, {
       httpOnly: true,

@@ -14,12 +14,17 @@ export interface IAuthProvider {
   ldapBindPassword: string;
   ldapBaseDn: string;
   ldapUserSearchFilter: string;
+  ldapGroupSearchFilter: string;
   ldapUserAttributes: any;
   ldapTlsEnabled: boolean;
   ldapTlsCaCert: string;
+  ldapReadonly: boolean;
   allowSignup: boolean;
   isEnabled: boolean;
   groupSync: boolean;
+  connectionStatus?: string;
+  lastCheckedAt?: Date;
+  lastError?: string;
   creatorId: string;
   workspaceId: string;
   createdAt: Date;

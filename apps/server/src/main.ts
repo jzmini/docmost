@@ -12,6 +12,10 @@ import fastifyMultipart from '@fastify/multipart';
 import fastifyCookie from '@fastify/cookie';
 
 async function bootstrap() {
+  const logger = new Logger('Bootstrap');
+  logger.log('DOCMOST STARTING - ENHANCED LOGGING ACTIVE');
+  logger.log(`Build timestamp: ${new Date().toISOString()}`);
+  
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,
     new FastifyAdapter({
@@ -85,19 +89,19 @@ async function bootstrap() {
   app.useGlobalInterceptors(new TransformHttpResponseInterceptor(reflector));
   app.enableShutdownHooks();
 
-  const logger = new Logger('NestApplication');
+  const appLogger = new Logger('NestApplication');
 
   process.on('unhandledRejection', (reason, promise) => {
-    logger.error(`UnhandledRejection, reason: ${reason}`, promise);
+    appLogger.error(`UnhandledRejection, reason: ${reason}`, promise);
   });
 
   process.on('uncaughtException', (error) => {
-    logger.error('UncaughtException:', error);
+    appLogger.error('UncaughtException:', error);
   });
 
   const port = process.env.PORT || 3000;
   await app.listen(port, '0.0.0.0', () => {
-    logger.log(
+    appLogger.log(
       `Listening on http://127.0.0.1:${port} / ${process.env.APP_URL}`,
     );
   });

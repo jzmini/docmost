@@ -6,6 +6,9 @@ import {
   HttpCode,
   HttpStatus,
   ForbiddenException,
+  Logger,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { GroupService } from './services/group.service';
 import { CreateGroupDto } from './dto/create-group.dto';
@@ -24,29 +27,61 @@ import {
   WorkspaceCaslAction,
   WorkspaceCaslSubject,
 } from '../casl/interfaces/workspace-ability.type';
+import { LdapService } from '../auth/services/ldap.service';
 
 @UseGuards(JwtAuthGuard)
 @Controller('groups')
 export class GroupController {
+  private readonly logger = new Logger(GroupController.name);
+  
   constructor(
     private readonly groupService: GroupService,
     private readonly groupUserService: GroupUserService,
     private readonly workspaceAbility: WorkspaceAbilityFactory,
+    @Inject(forwardRef(() => LdapService))
+    private readonly ldapService: LdapService,
   ) {}
 
   @HttpCode(HttpStatus.OK)
   @Post('/')
-  getWorkspaceGroups(
+  async getWorkspaceGroups(
     @Body() pagination: PaginationOptions,
     @AuthUser() user: User,
     @AuthWorkspace() workspace: Workspace,
   ) {
+    this.logger.log(`=== Groups API Request ===`);
+    this.logger.log(`User: ${user.email} (${user.id})`);
+    this.logger.log(`Workspace: ${workspace.id}`);
+    this.logger.log(`Request body: ${JSON.stringify(pagination)}`);
+    
     const ability = this.workspaceAbility.createForUser(user, workspace);
     if (ability.cannot(WorkspaceCaslAction.Read, WorkspaceCaslSubject.Group)) {
+      this.logger.error(`User ${user.email} does not have permission to read groups`);
       throw new ForbiddenException();
     }
-
-    return this.groupService.getWorkspaceGroups(workspace.id, pagination);
+    
+    this.logger.log(`User has permission, syncing LDAP groups first...`);
+    
+    // Sync LDAP groups before fetching
+    try {
+      console.log('\n=== TRIGGERING LDAP GROUP SYNC FROM GROUPS PAGE ===');
+      await this.ldapService.syncAllLdapGroups(workspace.id);
+      console.log('=== LDAP GROUP SYNC COMPLETE ===\n');
+    } catch (error: any) {
+      console.log(`LDAP sync error (non-fatal): ${error.message}`);
+      this.logger.warn(`LDAP group sync failed: ${error.message}`);
+      // Continue to show existing groups even if LDAP sync fails
+    }
+    
+    this.logger.log(`Fetching groups from database...`);
+    
+    const result = await this.groupService.getWorkspaceGroups(workspace.id, pagination);
+    
+    this.logger.log(`Groups fetched, count: ${result?.items?.length || 0}`);
+    const total = (result?.meta as any)?.total || 0;
+    this.logger.log(`Total groups in DB: ${total}`);
+    
+    return result;
   }
 
   @HttpCode(HttpStatus.OK)

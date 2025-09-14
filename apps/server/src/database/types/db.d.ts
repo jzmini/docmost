@@ -66,12 +66,17 @@ export interface AuthProviders {
   ldapBaseDn: string | null;
   ldapBindDn: string | null;
   ldapBindPassword: string | null;
+  ldapReadonly: Generated<boolean>;
   ldapTlsCaCert: string | null;
   ldapTlsEnabled: Generated<boolean | null>;
   ldapUrl: string | null;
   ldapUserAttributes: Json | null;
   ldapUserSearchFilter: string | null;
+  ldapGroupSearchFilter: string | null;
   ldapConfig: Json | null;
+  connectionStatus: string | null;
+  lastCheckedAt: Timestamp | null;
+  lastError: string | null;
   settings: Json | null;
   name: string;
   oidcClientId: string | null;

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   useDeleteSsoProviderMutation,
   useGetSsoProviders,
@@ -12,12 +12,14 @@ import {
   Table,
   Text,
   ThemeIcon,
+  Tooltip,
 } from "@mantine/core";
 import {
   IconCheck,
   IconDots,
   IconLock,
   IconPencil,
+  IconRefresh,
   IconServer,
   IconTrash,
   IconX,
@@ -33,12 +35,94 @@ import { CustomAvatar } from "@/components/ui/custom-avatar.tsx";
 import RoleSelectMenu from "@/components/ui/role-select-menu.tsx";
 import { getUserRoleLabel } from "@/features/workspace/types/user-role-data.ts";
 
+function getStatusColor(status: string): string {
+  switch (status) {
+    case 'active':
+      return 'green';
+    case 'disconnected':
+      return 'red';
+    case 'invalid_config':
+      return 'yellow';
+    case 'auth_failed':
+      return 'orange';
+    case 'timeout':
+      return 'red';
+    case 'error':
+      return 'red';
+    case 'checking':
+      return 'blue';
+    case 'unchecked':
+    default:
+      return 'gray';
+  }
+}
+
+function getStatusLabel(status: string): string {
+  switch (status) {
+    case 'active':
+      return 'Connected';
+    case 'disconnected':
+      return 'Disconnected';
+    case 'invalid_config':
+      return 'Invalid Config';
+    case 'auth_failed':
+      return 'Auth Failed';
+    case 'timeout':
+      return 'Timeout';
+    case 'error':
+      return 'Error';
+    case 'checking':
+      return 'Checking...';
+    case 'unchecked':
+    default:
+      return 'Not Checked';
+  }
+}
+
 export default function SsoProviderList() {
   const { t } = useTranslation();
-  const { data, isLoading } = useGetSsoProviders();
+  const { data, isLoading, refetch } = useGetSsoProviders();
   const [opened, { open, close }] = useDisclosure(false);
   const deleteSsoProviderMutation = useDeleteSsoProviderMutation();
   const [editProvider, setEditProvider] = useState<IAuthProvider | null>(null);
+  const [checkingStatus, setCheckingStatus] = useState<string | null>(null);
+
+  // Auto-refresh after initial load to get updated statuses
+  useEffect(() => {
+    if (data) {
+      console.log('Providers data:', data.map((p: any) => ({
+        id: p.id,
+        type: p.type,
+        connectionStatus: p.connectionStatus,
+        lastCheckedAt: p.lastCheckedAt,
+        lastError: p.lastError
+      })));
+      // Give backend time to check connections, then refresh
+      const timer = setTimeout(() => {
+        refetch();
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [data?.length]); // Only on initial load or when providers added/removed
+
+  const checkProviderStatus = async (providerId: string) => {
+    setCheckingStatus(providerId);
+    try {
+      const response = await fetch(`/api/sso/providers/${providerId}/check-connection`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+      
+      if (response.ok) {
+        // Refresh the provider list to get updated status
+        setTimeout(() => refetch(), 500); // Small delay to ensure DB is updated
+      }
+    } catch (error) {
+      console.error('Failed to check provider status:', error);
+    } finally {
+      setCheckingStatus(null);
+    }
+  };
 
   if (isLoading || !data) {
     return null;
@@ -112,12 +196,42 @@ export default function SsoProviderList() {
                       </Badge>
                     </Table.Td>
                     <Table.Td>
-                      <Badge
-                        color={provider.isEnabled ? "blue" : "gray"}
-                        variant="light"
-                      >
-                        {provider.isEnabled ? "Active" : "InActive"}
-                      </Badge>
+                      {provider.type === 'ldap' ? (
+                        <Group gap="xs">
+                          <Tooltip 
+                            label={
+                            provider.lastError ? 
+                            `Error: ${provider.lastError}` : 
+                            provider.lastCheckedAt ? 
+                            `Last checked: ${new Date(provider.lastCheckedAt).toLocaleString()}` : 
+                            'Never checked'
+                            }
+                          >
+                            <Badge
+                              color={getStatusColor(provider.connectionStatus || 'unchecked')}
+                              variant="light"
+                            >
+                              {getStatusLabel(provider.connectionStatus || 'unchecked')}
+                            </Badge>
+                          </Tooltip>
+                          <ActionIcon 
+                            size="xs" 
+                            variant="subtle"
+                            onClick={() => checkProviderStatus(provider.id)}
+                            loading={checkingStatus === provider.id}
+                            title="Check connection status"
+                          >
+                            <IconRefresh size={14} />
+                          </ActionIcon>
+                        </Group>
+                      ) : (
+                        <Badge
+                          color={provider.isEnabled ? "blue" : "gray"}
+                          variant="light"
+                        >
+                          {provider.isEnabled ? "Active" : "Inactive"}
+                        </Badge>
+                      )}
                     </Table.Td>
                     <Table.Td>
                       {provider.allowSignup ? (

@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectKysely } from 'nestjs-kysely';
 import { KyselyDB, KyselyTransaction } from '@docmost/db/types/kysely.types';
 import { AuthProviders } from '@docmost/db/types/db';
+import { AuthProvider } from '@docmost/db/types/entity.types';
 import { dbOrTx } from '@docmost/db/utils';
 
 export interface CreateAuthProviderDto {
@@ -14,9 +15,11 @@ export interface CreateAuthProviderDto {
   ldapBindPassword?: string;
   ldapBaseDn?: string;
   ldapUserSearchFilter?: string;
+  ldapGroupSearchFilter?: string;
   ldapUserAttributes?: any;
   ldapTlsEnabled?: boolean;
   ldapTlsCaCert?: string;
+  ldapReadonly?: boolean;
   ldapConfig?: any;
   settings?: any;
   isEnabled?: boolean;
@@ -31,9 +34,11 @@ export interface UpdateAuthProviderDto {
   ldapBindPassword?: string;
   ldapBaseDn?: string;
   ldapUserSearchFilter?: string;
+  ldapGroupSearchFilter?: string;
   ldapUserAttributes?: any;
   ldapTlsEnabled?: boolean;
   ldapTlsCaCert?: string;
+  ldapReadonly?: boolean;
   ldapConfig?: any;
   settings?: any;
   isEnabled?: boolean;
@@ -48,7 +53,7 @@ export class AuthProviderRepo {
   async create(
     data: CreateAuthProviderDto,
     trx?: KyselyTransaction,
-  ): Promise<AuthProviders> {
+  ): Promise<AuthProvider> {
     const db = dbOrTx(this.db, trx);
     
     return (await db
@@ -66,21 +71,22 @@ export class AuthProviderRepo {
         ldapUserAttributes: data.ldapUserAttributes || {},
         ldapTlsEnabled: data.ldapTlsEnabled || false,
         ldapTlsCaCert: data.ldapTlsCaCert,
+        ldapReadonly: data.ldapReadonly !== undefined ? data.ldapReadonly : true,  // Default to true (read-only)
         ldapConfig: data.ldapConfig || {},
         settings: data.settings || {},
-        isEnabled: data.isEnabled || false,
-        allowSignup: data.allowSignup || false,
-        groupSync: data.groupSync || false,
+        isEnabled: data.isEnabled !== undefined ? data.isEnabled : false,  // Default to false until properly configured
+        allowSignup: data.allowSignup !== undefined ? data.allowSignup : false,  // Default to false for security
+        groupSync: data.groupSync !== undefined ? data.groupSync : false,  // Default to false until configured
       })
       .returningAll()
-      .executeTakeFirst()) as unknown as AuthProviders;
+      .executeTakeFirst()) as unknown as AuthProvider;
   }
 
   async findById(
     id: string,
     workspaceId?: string,
     trx?: KyselyTransaction,
-  ): Promise<AuthProviders | undefined> {
+  ): Promise<AuthProvider | undefined> {
     const db = dbOrTx(this.db, trx);
     
     let query = db
@@ -93,13 +99,13 @@ export class AuthProviderRepo {
       query = query.where('workspaceId', '=', workspaceId);
     }
     
-    return (await query.executeTakeFirst()) as unknown as AuthProviders | undefined;
+    return (await query.executeTakeFirst()) as unknown as AuthProvider | undefined;
   }
 
   async findByWorkspace(
     workspaceId: string,
     trx?: KyselyTransaction,
-  ): Promise<AuthProviders[]> {
+  ): Promise<AuthProvider[]> {
     const db = dbOrTx(this.db, trx);
     
     return (await db
@@ -108,13 +114,13 @@ export class AuthProviderRepo {
       .where('workspaceId', '=', workspaceId)
       .where('deletedAt', 'is', null)
       .orderBy('createdAt', 'asc')
-      .execute()) as unknown as AuthProviders[];
+      .execute()) as unknown as AuthProvider[];
   }
 
   async findEnabledByWorkspace(
     workspaceId: string,
     trx?: KyselyTransaction,
-  ): Promise<AuthProviders[]> {
+  ): Promise<AuthProvider[]> {
     const db = dbOrTx(this.db, trx);
     
     return (await db
@@ -124,7 +130,7 @@ export class AuthProviderRepo {
       .where('isEnabled', '=', true)
       .where('deletedAt', 'is', null)
       .orderBy('createdAt', 'asc')
-      .execute()) as unknown as AuthProviders[];
+      .execute()) as unknown as AuthProvider[];
   }
 
   async update(
@@ -132,7 +138,7 @@ export class AuthProviderRepo {
     workspaceId: string,
     data: UpdateAuthProviderDto,
     trx?: KyselyTransaction,
-  ): Promise<AuthProviders | undefined> {
+  ): Promise<AuthProvider | undefined> {
     const db = dbOrTx(this.db, trx);
     
     return (await db
@@ -145,7 +151,7 @@ export class AuthProviderRepo {
       .where('workspaceId', '=', workspaceId)
       .where('deletedAt', 'is', null)
       .returningAll()
-      .executeTakeFirst()) as unknown as AuthProviders | undefined;
+      .executeTakeFirst()) as unknown as AuthProvider | undefined;
   }
 
   async delete(
