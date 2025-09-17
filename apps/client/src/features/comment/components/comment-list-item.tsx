@@ -7,7 +7,6 @@ import CommentEditor from "@/features/comment/components/comment-editor";
 import { pageEditorAtom } from "@/features/editor/atoms/editor-atoms";
 import CommentActions from "@/features/comment/components/comment-actions";
 import CommentMenu from "@/features/comment/components/comment-menu";
-import { useIsCloudEE } from "@/hooks/use-is-cloud-ee";
 import ResolveComment from "@/ee/comment/components/resolve-comment";
 import { useHover } from "@mantine/hooks";
 import {
@@ -45,7 +44,6 @@ function CommentListItem({
   const resolveCommentMutation = useResolveCommentMutation();
   const [currentUser] = useAtom(currentUserAtom);
   const emit = useQueryEmit();
-  const isCloudEE = useIsCloudEE();
 
   useEffect(() => {
     setContent(comment.content);
@@ -87,7 +85,6 @@ function CommentListItem({
   }
 
   async function handleResolveComment() {
-    if (!isCloudEE) return;
     
     try {
       const isResolved = comment.resolvedAt != null;
@@ -147,7 +144,7 @@ function CommentListItem({
             </Text>
 
             <div style={{ visibility: hovered ? "visible" : "hidden" }}>
-              {!comment.parentCommentId && canComment && isCloudEE && (
+              {!comment.parentCommentId && canComment && (
                 <ResolveComment
                   editor={editor}
                   commentId={comment.id}

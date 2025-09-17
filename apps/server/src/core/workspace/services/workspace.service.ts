@@ -90,20 +90,8 @@ export class WorkspaceService {
       throw new NotFoundException('Workspace not found');
     }
 
-    console.log('\n=== WORKSPACE PUBLIC DATA ===');
-    console.log(`Workspace: ${workspace.name} (${workspace.id})`);
-    console.log(`Auth Providers: ${workspace.authProviders?.length || 0}`);
-    if (workspace.authProviders && workspace.authProviders.length > 0) {
-      workspace.authProviders.forEach((p: any) => {
-        console.log(`  - ${p.name} (${p.type}) - ID: ${p.id}`);
-      });
-    }
-    console.log('==============================\n');
 
-    return {
-      ...workspace,
-      hasLicenseKey: true, // Always return true to bypass all license checks
-    };
+    return workspace;
   }
 
   async create(
@@ -318,10 +306,7 @@ export class WorkspaceService {
       withMemberCount: true,
     });
 
-    return {
-      ...workspace,
-      hasLicenseKey: true,
-    };
+    return workspace;
   }
 
   async getWorkspaceUsers(

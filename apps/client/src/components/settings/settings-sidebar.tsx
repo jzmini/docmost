@@ -23,7 +23,6 @@ import { workspaceAtom } from "@/features/user/atoms/current-user-atom.ts";
 import {
   prefetchBilling,
   prefetchGroups,
-  prefetchLicense,
   prefetchShares,
   prefetchSpaces,
   prefetchSsoProviders,
@@ -87,16 +86,6 @@ const groupedData: DataGroup[] = [
       { label: "Groups", icon: IconUsersGroup, path: "/settings/groups" },
       { label: "Spaces", icon: IconSpaces, path: "/settings/spaces" },
       { label: "Public sharing", icon: IconWorld, path: "/settings/sharing" },
-    ],
-  },
-  {
-    heading: "System",
-    items: [
-      {
-        label: "License & Edition",
-        icon: IconKey,
-        path: "/settings/license",
-      },
     ],
   },
 ];
@@ -176,9 +165,6 @@ export default function SettingsSidebar() {
               break;
             case "Billing":
               prefetchHandler = prefetchBilling;
-              break;
-            case "License & Edition":
-              prefetchHandler = prefetchLicense;
               break;
             case "Security & SSO":
               prefetchHandler = prefetchSsoProviders;

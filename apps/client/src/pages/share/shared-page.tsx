@@ -56,7 +56,6 @@ export default function SharedPage() {
         />
       </Container>
 
-      {data && !shareId && !data.hasLicenseKey && <ShareBranding />}
     </div>
   );
 }

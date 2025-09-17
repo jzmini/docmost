@@ -32,12 +32,9 @@ export class UserController {
       workspace.id,
     );
 
-    const { licenseKey, ...rest } = workspace;
-
     const workspaceInfo = {
-      ...rest,
+      ...workspace,
       memberCount,
-      hasLicenseKey: true,
     };
 
     // Check if user is an LDAP user

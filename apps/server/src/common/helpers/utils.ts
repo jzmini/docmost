@@ -99,11 +99,3 @@ export function extractBearerTokenFromHeader(
   return type === 'Bearer' ? token : undefined;
 }
 
-export function hasLicenseOrEE(opts: {
-  licenseKey: string;
-  plan: string;
-  isCloud: boolean;
-}): boolean {
-  const { licenseKey, plan, isCloud } = opts;
-  return Boolean(licenseKey) || (isCloud && plan === 'business');
-}

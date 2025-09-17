@@ -15,7 +15,6 @@ import { IPagination } from "@/lib/types.ts";
 import { extractPageSlugId } from "@/lib";
 import { useTranslation } from "react-i18next";
 import { useQueryEmit } from "@/features/websocket/use-query-emit";
-import { useIsCloudEE } from "@/hooks/use-is-cloud-ee";
 import { useGetSpaceBySlugQuery } from "@/features/space/queries/space-query.ts";
 import { useSpaceAbility } from "@/features/space/permissions/use-space-ability.ts";
 import {
@@ -35,7 +34,6 @@ function CommentListWithTabs() {
   const createCommentMutation = useCreateCommentMutation();
   const [isLoading, setIsLoading] = useState(false);
   const emit = useQueryEmit();
-  const isCloudEE = useIsCloudEE();
   const { data: space } = useGetSpaceBySlugQuery(page?.space?.slug);
 
   const spaceRules = space?.membership?.permissions;
@@ -144,59 +142,6 @@ function CommentListWithTabs() {
 
   const totalComments = activeComments.length + resolvedComments.length;
 
-  // If not cloud/enterprise, show simple list without tabs
-  if (!isCloudEE) {
-    if (totalComments === 0) {
-      return <>{t("No comments yet.")}</>;
-    }
-
-    return (
-      <ScrollArea style={{ height: "85vh" }} scrollbarSize={5} type="scroll">
-        <div style={{ paddingBottom: "200px" }}>
-          {comments?.items
-            .filter((comment: IComment) => comment.parentCommentId === null)
-            .map((comment) => (
-              <Paper
-                shadow="sm"
-                radius="md"
-                p="sm"
-                mb="sm"
-                withBorder
-                key={comment.id}
-                data-comment-id={comment.id}
-              >
-                <div>
-                  <CommentListItem
-                    comment={comment}
-                    pageId={page?.id}
-                    canComment={canComment}
-                    userSpaceRole={space?.membership?.role}
-                  />
-                  <MemoizedChildComments
-                    comments={comments}
-                    parentId={comment.id}
-                    pageId={page?.id}
-                    canComment={canComment}
-                    userSpaceRole={space?.membership?.role}
-                  />
-                </div>
-
-                {canComment && (
-                  <>
-                    <Divider my={4} />
-                    <CommentEditorWithActions
-                      commentId={comment.id}
-                      onSave={handleAddReply}
-                      isLoading={isLoading}
-                    />
-                  </>
-                )}
-              </Paper>
-            ))}
-        </div>
-      </ScrollArea>
-    );
-  }
 
   return (
     <div style={{ height: "85vh", display: "flex", flexDirection: "column", marginTop: '-15px' }}>

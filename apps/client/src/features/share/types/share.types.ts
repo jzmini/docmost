@@ -41,7 +41,6 @@ export interface ISharedPage extends IShare {
     level: number;
     sharedPage: { id: string; slugId: string; title: string; icon: string };
   };
-  hasLicenseKey: boolean;
 }
 
 export interface IShareForPage extends IShare {
@@ -71,5 +70,4 @@ export interface IShareInfoInput {
 export interface ISharedPageTree {
   share: IShare;
   pageTree: Partial<IPage[]>;
-  hasLicenseKey: boolean;
 }
