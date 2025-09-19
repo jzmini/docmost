@@ -52,6 +52,19 @@ export class AuthService {
       throw new UnauthorizedException(errorMessage);
     }
 
+    // Check if user is an LDAP/SSO user - they should not use local login
+    const authAccount = await this.db
+      .selectFrom('authAccounts')
+      .innerJoin('authProviders', 'authProviders.id', 'authAccounts.authProviderId')
+      .where('authAccounts.userId', '=', user.id)
+      .where('authProviders.deletedAt', 'is', null)
+      .select(['authProviders.type', 'authProviders.name'])
+      .executeTakeFirst();
+
+    if (authAccount) {
+      throw new UnauthorizedException(`Please use ${authAccount.name} authentication to login`);
+    }
+
     const isPasswordMatch = await comparePasswordHash(
       loginDto.password,
       user.password,

@@ -125,6 +125,19 @@ export class LdapService {
       console.log(`✓ Successfully created user ${ldapUser.email} in Docmost database`);
     } else if (user.deletedAt) {
       throw new UnauthorizedException('User account has been deleted');
+    } else {
+      // Check if this is a local-only user (not created via SSO/LDAP)
+      const authAccount = await this.db
+        .selectFrom('authAccounts')
+        .where('authAccounts.userId', '=', user.id)
+        .executeTakeFirst();
+
+      // If user exists but has no auth account and was not created with generated password,
+      // they are a local-only user and should not authenticate via LDAP
+      if (!authAccount && !user.hasGeneratedPassword) {
+        console.log(`User ${ldapUser.email} is a local-only user, denying LDAP authentication`);
+        throw new UnauthorizedException('Please use local database authentication to login');
+      }
     }
 
     // Update last login

@@ -113,6 +113,17 @@ export class SsoController {
     @AuthUser() user: User,
   ) {
     this.checkWorkspaceManagePermission(user, workspace);
+    
+    // Check for duplicate provider name
+    const existingProviders = await this.authProviderRepo.findByWorkspace(workspace.id);
+    const duplicateName = existingProviders.find(
+      p => p.name.toLowerCase() === createDto.name.toLowerCase() && p.deletedAt === null
+    );
+    
+    if (duplicateName) {
+      throw new BadRequestException(`An authentication provider with the name "${createDto.name}" already exists`);
+    }
+    
     const provider = await this.authProviderRepo.create({
       ...createDto,
       workspaceId: workspace.id,
@@ -136,6 +147,19 @@ export class SsoController {
     @AuthUser() user: User,
   ) {
     this.checkWorkspaceManagePermission(user, workspace);
+    
+    // If name is being updated, check for duplicates
+    if (updateDto.name) {
+      const existingProviders = await this.authProviderRepo.findByWorkspace(workspace.id);
+      const duplicateName = existingProviders.find(
+        p => p.id !== id && p.name.toLowerCase() === updateDto.name.toLowerCase() && p.deletedAt === null
+      );
+      
+      if (duplicateName) {
+        throw new BadRequestException(`An authentication provider with the name "${updateDto.name}" already exists`);
+      }
+    }
+    
     const provider = await this.authProviderRepo.update(
       id,
       workspace.id,
