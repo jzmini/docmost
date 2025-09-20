@@ -17,6 +17,7 @@ import { useClipboard } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import { useNavigate } from "react-router-dom";
 import { useDeleteShareMutation } from "@/features/share/queries/share-query.ts";
+import { getAppUrl } from "@/lib/config.ts";
 
 interface Props {
   share: ISharedItem;
@@ -36,15 +37,62 @@ export default function ShareActionMenu({ share }: Props) {
     navigate(pageLink);
   };
 
-  const copyLink = () => {
+  const copyLink = async () => {
+    if (!share.key || !share.page) {
+      notifications.show({ 
+        message: t("Invalid share data"), 
+        color: "red" 
+      });
+      return;
+    }
+    
     const shareLink = buildSharedPageUrl({
       shareId: share.key,
       pageTitle: share.page.title,
       pageSlugId: share.page.slugId,
     });
+    
+    // Build full URL using getAppUrl
+    const appUrl = getAppUrl();
+    const fullUrl = appUrl + shareLink;
 
-    clipboard.copy(shareLink);
-    notifications.show({ message: t("Link copied") });
+    // Create a temporary textarea element as a fallback
+    const textArea = document.createElement("textarea");
+    textArea.value = fullUrl;
+    textArea.style.position = "fixed";
+    textArea.style.left = "-999999px";
+    textArea.style.top = "-999999px";
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+
+    try {
+      const successful = document.execCommand('copy');
+      if (successful) {
+        notifications.show({ message: t("Link copied") });
+      } else {
+        throw new Error('execCommand failed');
+      }
+    } catch (error) {
+      try {
+        // Try using the native clipboard API
+        if (navigator.clipboard && window.isSecureContext) {
+          await navigator.clipboard.writeText(fullUrl);
+          notifications.show({ message: t("Link copied") });
+        } else {
+          // Final fallback to Mantine's clipboard hook
+          clipboard.copy(fullUrl);
+          notifications.show({ message: t("Link copied") });
+        }
+      } catch (error2) {
+        notifications.show({ 
+          message: t("Failed to copy link"), 
+          color: "red" 
+        });
+      }
+    } finally {
+      document.body.removeChild(textArea);
+    }
   };
   const onDelete = async () => {
     deleteShareMutation.mutateAsync(share.key);

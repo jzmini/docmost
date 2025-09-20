@@ -17,6 +17,18 @@ export default function ShareList() {
   const [page, setPage] = useState(1);
   const { data, isLoading } = useGetSharesQuery({ page });
 
+  if (isLoading) {
+    return <Text>Loading...</Text>;
+  }
+
+  if (!data?.items || data.items.length === 0) {
+    return (
+      <Text c="dimmed" ta="center" mt="xl">
+        {t("Publicly shared pages from spaces you are a member of will appear here")}
+      </Text>
+    );
+  }
+
   return (
     <>
       <Table.ScrollContainer minWidth={500}>

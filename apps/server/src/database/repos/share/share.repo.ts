@@ -146,10 +146,11 @@ export class ShareRepo {
       .select((eb) => this.withSpace(eb, userId))
       .select((eb) => this.withCreator(eb))
       .where('spaceId', 'in', userSpaceIds)
+      .where('deletedAt', 'is', null) // Only get non-deleted shares
       .orderBy('updatedAt', 'desc');
 
     const hasEmptyIds = userSpaceIds.length === 0;
-    const result = executeWithPagination(query, {
+    const result = await executeWithPagination(query, {
       page: pagination.page,
       perPage: pagination.limit,
       hasEmptyIds,
