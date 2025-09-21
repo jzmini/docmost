@@ -23,11 +23,6 @@ This fork includes the following enhancements over the original Docmost v0.23.2:
 - **LDAP group sync** that automatically manages group membership
 - **Improved user search** supporting LDAP usernames and email addresses
 
-### 🔓 License-Free Features
-- **Removed all Enterprise Edition restrictions** - all features are available without a license
-- **No trial mode limitations** - full functionality without upgrade prompts
-- **Confluence import** and other EE features enabled by default
-
 ### 🛠️ UI/UX Improvements
 - **Edit button on shared pages** - allows viewers to quickly login and edit
 - **Smart redirect after login** - automatically returns to the page you were viewing
@@ -36,7 +31,6 @@ This fork includes the following enhancements over the original Docmost v0.23.2:
 - **Fixed clipboard copy** functionality for sharing links
 
 ### 🐛 Bug Fixes
-- Fixed Docker build to support mirror registries
 - Fixed public page sharing display issues
 - Fixed LDAP group synchronization removing users incorrectly
 - Fixed authentication isolation between local and LDAP users
@@ -44,12 +38,57 @@ This fork includes the following enhancements over the original Docmost v0.23.2:
 ### 🏗️ Technical Changes
 - Rebased on upstream main branch (includes all updates up to v0.23.2)
 - Database migrations for LDAP support
-- Removed license validation code
 - Enhanced error handling for authentication
+- Added `build-local-image.sh` script for easy local Docker image building
 
 ## Getting started
 
 To get started with this enhanced version of Docmost, please refer to the original [documentation](https://docmost.com/docs).
+
+### Building from Source
+
+#### Using `build-local-image.sh`
+
+The `build-local-image.sh` script allows you to build a local Docker image from source code instead of using the official Docker Hub image. This is particularly useful for:
+- Testing your modifications
+- Building for specific platforms (ARM64, AMD64)
+- Creating custom deployments
+- Working behind corporate firewalls with mirror registries
+
+**Basic usage:**
+```bash
+# Build with default settings (creates docmost/docmost:local)
+./build-local-image.sh
+
+# Build with custom tag
+./build-local-image.sh --tag v1.0.0
+
+# Build without cache (useful after making changes)
+./build-local-image.sh --no-cache
+
+# Build for specific platform
+./build-local-image.sh --platform linux/arm64
+
+# Build with verbose output for debugging
+./build-local-image.sh --verbose
+```
+
+**Available options:**
+- `-h, --help` - Show help message
+- `-t, --tag TAG` - Custom tag for the image (default: local)
+- `-n, --name NAME` - Custom image name (default: docmost/docmost)
+- `-c, --no-cache` - Build without using Docker cache
+- `-p, --platform PLATFORM` - Target platform (e.g., linux/amd64, linux/arm64)
+- `-v, --verbose` - Show detailed build output
+- `--push` - Push the image to registry after building
+- `--clean` - Remove existing local image before building
+
+After building, update your `docker-compose.yml` to use the local image:
+```yaml
+services:
+  docmost:
+    image: docmost/docmost:local  # Instead of docmost/docmost:latest
+```
 
 ## Features
 
@@ -78,7 +117,7 @@ This fork maintains the same licensing as the original Docmost:
 - Core features are licensed under the open-source AGPL 3.0 license
 - Original Enterprise Edition features remain under their respective licenses
 
-**Note**: While this fork removes license restrictions for functionality, it respects the original licensing terms. Users should review the original Docmost licensing for compliance.
+**Note**: This fork respects the original licensing terms. Users should review the original Docmost licensing for compliance.
 
 ### Contributing
 
