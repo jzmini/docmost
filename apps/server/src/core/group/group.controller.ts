@@ -49,40 +49,22 @@ export class GroupController {
     @AuthUser() user: User,
     @AuthWorkspace() workspace: Workspace,
   ) {
-    this.logger.log(`=== Groups API Request ===`);
-    this.logger.log(`User: ${user.email} (${user.id})`);
-    this.logger.log(`Workspace: ${workspace.id}`);
-    this.logger.log(`Request body: ${JSON.stringify(pagination)}`);
+    this.logger.debug(`Groups API request from user ${user.email}`);
     
     const ability = this.workspaceAbility.createForUser(user, workspace);
     if (ability.cannot(WorkspaceCaslAction.Read, WorkspaceCaslSubject.Group)) {
-      this.logger.error(`User ${user.email} does not have permission to read groups`);
       throw new ForbiddenException();
     }
     
-    this.logger.log(`User has permission, syncing LDAP groups first...`);
-    
     // Sync LDAP groups and memberships before fetching
     try {
-      console.log('\n=== TRIGGERING LDAP SYNC FROM GROUPS PAGE ===');
-      console.log('This will sync groups and update memberships for existing users.');
-      console.log('Note: Only users who have logged into Docmost will be added to groups.');
       await this.ldapService.syncAllLdapGroups(workspace.id);
-      console.log('=== LDAP SYNC COMPLETE ===\n');
     } catch (error: any) {
-      console.log(`LDAP sync error (non-fatal): ${error.message}`);
       this.logger.warn(`LDAP group sync failed: ${error.message}`);
       // Continue to show existing groups even if LDAP sync fails
     }
     
-    this.logger.log(`Fetching groups from database...`);
-    
     const result = await this.groupService.getWorkspaceGroups(workspace.id, pagination);
-    
-    this.logger.log(`Groups fetched, count: ${result?.items?.length || 0}`);
-    const total = (result?.meta as any)?.total || 0;
-    this.logger.log(`Total groups in DB: ${total}`);
-    
     return result;
   }
 

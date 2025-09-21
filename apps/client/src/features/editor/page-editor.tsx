@@ -51,6 +51,7 @@ import { FIVE_MINUTES } from "@/lib/constants.ts";
 import { PageEditMode } from "@/features/user/types/user.types.ts";
 import { jwtDecode } from "jwt-decode";
 import { searchSpotlight } from '@/features/search/constants.ts';
+import EditorToolbar from "@/features/editor/components/toolbar/editor-toolbar";
 
 interface PageEditorProps {
   pageId: string;
@@ -382,6 +383,9 @@ export default function PageEditor({
 
   return (
     <div className="editor-container" style={{ position: "relative" }}>
+      {editor && editor.isEditable && (
+        <EditorToolbar editor={editor} pageId={pageId} />
+      )}
       <div ref={menuContainerRef}>
         <EditorContent editor={editor} />
 

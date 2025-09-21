@@ -209,7 +209,6 @@ export class SsoController {
       // The frontend will navigate to home when response is successful
       return;
     } catch (error: any) {
-      this.logger.error(`LDAP login failed: ${error.message}`);
       throw error;
     }
   }
@@ -255,7 +254,6 @@ export class SsoController {
       const result = await this.ldapService.testConnection(testDto);
       return result;
     } catch (error: any) {
-      this.logger.error(`LDAP test connection failed: ${error.message}`);
       throw error;
     }
   }

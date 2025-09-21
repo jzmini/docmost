@@ -29,49 +29,25 @@ export class LdapService {
   ) {}
 
   async login(ldapLoginDto: LdapLoginDto, workspaceId: string) {
-    console.log('\n\n========== LDAP LOGIN ATTEMPT ==========');
-    console.log(`Timestamp: ${new Date().toISOString()}`);
-    console.log(`Username: ${ldapLoginDto.username}`);
-    console.log(`Workspace ID: ${workspaceId}`);
-    console.log(`Provider ID: ${ldapLoginDto.providerId}`);
-    
     const provider = await this.authProviderRepo.findById(
       ldapLoginDto.providerId,
       workspaceId,
     );
 
     if (!provider) {
-      console.log('LOGIN FAILED: Provider not found');
-      console.log(`Provider ID ${ldapLoginDto.providerId} does not exist`);
-      console.log('=========================================\n\n');
       throw new UnauthorizedException('LDAP provider not found');
     }
     
     if (provider.type !== 'ldap') {
-      console.log('LOGIN FAILED: Provider is not LDAP type');
-      console.log(`Provider type is: ${provider.type}`);
-      console.log('=========================================\n\n');
       throw new UnauthorizedException('Provider is not an LDAP provider');
     }
     
     if (!provider.isEnabled) {
-      console.log('LOGIN FAILED: Provider is disabled');
-      console.log('=========================================\n\n');
       throw new UnauthorizedException('LDAP provider is disabled');
     }
-
-    console.log(`Provider found - Type: ${provider.type}, Enabled: ${provider.isEnabled}`);
-    console.log(`Provider Name: ${provider.name}`);
-    console.log(`LDAP URL: ${provider.ldapUrl}`);
-    console.log(`LDAP Base DN: ${provider.ldapBaseDn}`);
-    console.log(`LDAP User Search Filter: ${provider.ldapUserSearchFilter}`);
-    console.log(`Provider groupSync: ${provider.groupSync}`);
     
-    this.logger.log(`=== LDAP Login Started ===`);
-    this.logger.log(`Provider ID: ${provider.id}, Type: ${provider.type}`);
-    this.logger.log(`Provider groupSync setting: ${provider.groupSync}`);
+    this.logger.debug(`LDAP login attempt for user: ${ldapLoginDto.username}`);
     
-    console.log('Calling authenticateLdap...');
     const ldapUser = await this.authenticateLdap(
       provider,
       ldapLoginDto.username,
@@ -79,31 +55,20 @@ export class LdapService {
       workspaceId,
     );
     
-    console.log('LDAP authentication result:');
-    console.log(`  - Email: ${ldapUser?.email || 'N/A'}`);
-    console.log(`  - Name: ${ldapUser?.name || 'N/A'}`);
-    console.log(`  - Groups found: ${ldapUser?.groups?.length || 0}`);
-    if (ldapUser?.groups && ldapUser.groups.length > 0) {
-      console.log(`  - Group list: [${ldapUser.groups.join(', ')}]`);
-    }
 
     if (!ldapUser) {
-      console.log('LOGIN FAILED: authenticateLdap returned null');
-      console.log('This means the user was not found or password was incorrect');
-      console.log('=========================================\n\n');
       this.logger.error('LDAP authentication failed - no user returned');
       throw new UnauthorizedException('Invalid LDAP credentials');
     }
     
-    this.logger.log(`LDAP user authenticated: ${ldapUser.email}`);
+    this.logger.debug(`LDAP user authenticated: ${ldapUser.email}`);
     this.logger.log(`LDAP groups returned: ${ldapUser.groups?.length || 0}`);
 
     // Find or create user
     let user = await this.userRepo.findByEmail(ldapUser.email, workspaceId);
 
     if (!user) {
-      console.log(`User ${ldapUser.email} not found in database`);
-      console.log('Creating user in Docmost database (LDAP users are always provisioned on successful authentication)');
+      this.logger.debug(`Creating new user ${ldapUser.email} from LDAP authentication`);
       
       // IMPORTANT: LDAP authenticated users should ALWAYS be provisioned in Docmost
       // This is NOT signup/registration - this is just syncing authenticated LDAP users to the local DB
@@ -122,7 +87,6 @@ export class LdapService {
         undefined, // trx
       );
       
-      console.log(`✓ Successfully created user ${ldapUser.email} in Docmost database`);
     } else if (user.deletedAt) {
       throw new UnauthorizedException('User account has been deleted');
     } else {
@@ -135,7 +99,7 @@ export class LdapService {
       // If user exists but has no auth account and was not created with generated password,
       // they are a local-only user and should not authenticate via LDAP
       if (!authAccount && !user.hasGeneratedPassword) {
-        console.log(`User ${ldapUser.email} is a local-only user, denying LDAP authentication`);
+        this.logger.warn(`User ${ldapUser.email} is a local-only user, denying LDAP authentication`);
         throw new UnauthorizedException('Please use local database authentication to login');
       }
     }
@@ -148,41 +112,19 @@ export class LdapService {
     await this.createOrUpdateAuthAccount(user.id, (provider.id as unknown) as string, workspaceId);
 
     // Sync groups if enabled
-    console.log('\n=== GROUP SYNC CHECK ===');
-    console.log(`Provider groupSync: ${provider.groupSync}`);
-    console.log(`User groups available: ${ldapUser.groups?.length || 0}`);
-    
-    this.logger.log(`=== LDAP Group Sync Debug ===`);
-    this.logger.log(`Provider settings - groupSync: ${provider.groupSync}, isEnabled: ${provider.isEnabled}`);
-    this.logger.log(`LDAP user groups found: ${ldapUser.groups?.length || 0}`);
-    if (ldapUser.groups && ldapUser.groups.length > 0) {
-      this.logger.log(`Groups list: ${ldapUser.groups.join(', ')}`);
-    }
     
     if (provider.groupSync && ldapUser.groups && ldapUser.groups.length > 0) {
-      console.log(`STARTING GROUP SYNC for ${user.email}`);
-      console.log(`Groups to sync: [${ldapUser.groups.join(', ')}]`);
-      
-      this.logger.log(`Starting group sync for user ${user.email} with ${ldapUser.groups.length} groups`);
+      this.logger.debug(`Syncing ${ldapUser.groups.length} groups for user ${user.email}`);
       await this.syncUserGroups(user.id, ldapUser.groups, workspaceId);
-      
-      console.log('GROUP SYNC COMPLETED');
-      this.logger.log(`Group sync completed for user ${user.email}`);
     } else {
       if (!provider.groupSync) {
-        console.log('GROUP SYNC SKIPPED: Disabled in settings');
-        this.logger.log(`Group sync is DISABLED for this provider`);
+        this.logger.debug(`Group sync disabled for provider`);
       } else if (!ldapUser.groups || ldapUser.groups.length === 0) {
-        console.log('GROUP SYNC SKIPPED: No groups found for user');
-        this.logger.log(`Group sync enabled but NO GROUPS found for user ${user.email}`);
+        this.logger.debug(`No groups found for user ${user.email}`);
       }
     }
     
-    console.log('LDAP LOGIN SUCCESSFUL');
-    console.log('=========================================\n\n');
-
     const token = await this.tokenService.generateAccessToken(user);
-    console.log(`Token generated for user: ${user.email}`);
     return token;
   }
 
@@ -192,11 +134,6 @@ export class LdapService {
     password: string,
     workspaceId?: string,
   ): Promise<{ email: string; name: string; groups?: string[] } | null> {
-    console.log('\n=== LDAP AUTHENTICATION ATTEMPT ===');
-    console.log(`Username: ${username}`);
-    console.log(`Provider: ${provider.name}`);
-    console.log(`LDAP URL: ${provider.ldapUrl}`);
-    console.log(`Base DN: ${provider.ldapBaseDn}`);
     
     const client = new Client({
       url: provider.ldapUrl!,
@@ -212,9 +149,7 @@ export class LdapService {
 
     try {
       // Bind with service account
-      console.log(`Binding with service account: ${provider.ldapBindDn}`);
       await client.bind(provider.ldapBindDn!, provider.ldapBindPassword!);
-      console.log('Service account bind successful');
 
       // Search for user - try multiple formats if email was provided
       let searchEntries: any[] = [];
@@ -224,7 +159,6 @@ export class LdapService {
       if (username.includes('@')) {
         const usernameOnly = username.split('@')[0];
         usernameFormats.push(usernameOnly);
-        console.log(`Username appears to be an email, will also try: ${usernameOnly}`);
       }
       
       for (const usernameToTry of usernameFormats) {
@@ -233,10 +167,7 @@ export class LdapService {
           usernameToTry,
         );
         
-        console.log(`\nAttempt with username: ${usernameToTry}`);
-        console.log(`User search filter BEFORE replacement: ${provider.ldapUserSearchFilter}`);
-        console.log(`User search filter AFTER replacement: ${searchFilter}`);
-        console.log(`Searching in base DN: ${provider.ldapBaseDn}`);
+        this.logger.debug(`Searching for user: ${usernameToTry} with filter: ${searchFilter}`);
 
         const searchResults: any = await client.search(provider.ldapBaseDn!, {
           filter: searchFilter,
@@ -245,36 +176,24 @@ export class LdapService {
         });
         
         searchEntries = searchResults.searchEntries || [];
-        console.log(`Search returned ${searchEntries.length} entries`);
         
         if (searchEntries.length > 0) {
-          console.log('User found!');
           break; // Found the user, stop trying
         }
       }
 
       if (searchEntries.length === 0) {
-        console.log('\nUSER NOT FOUND - All search attempts failed');
-        console.log('Tried usernames: ' + usernameFormats.join(', '));
-        console.log('Check that:');
-        console.log('  1. The user search filter is correct');
-        console.log('  2. The username format matches what LDAP expects');
-        console.log('  3. Try with just username (e.g., "jianweiz" or "jz") not email');
-        console.log('  4. Check LDAP user attributes (uid, cn, mail) match the filter');
+        this.logger.debug(`LDAP user not found. Tried usernames: ${usernameFormats.join(', ')}`);
         return null;
       }
 
       const userEntry = searchEntries[0];
       const userDn = userEntry.dn;
-      console.log(`Found user DN: ${userDn}`);
-      console.log(`User attributes: uid=${userEntry.uid}, cn=${userEntry.cn}, mail=${userEntry.mail}`);
+      this.logger.debug(`Found user DN: ${userDn}`);
 
       // Try to bind with user's credentials
-      console.log('Unbinding service account...');
       await client.unbind();
-      console.log(`Attempting to bind as user: ${userDn}`);
       await client.bind(userDn, password);
-      console.log('User bind successful - password is correct');
 
       // Extract user information
       // Get workspace email domains if available
@@ -299,26 +218,9 @@ export class LdapService {
 
       // Extract groups from memberOf attribute
       let groups: string[] = [];
-      console.log('\n=== LDAP GROUP EXTRACTION ===');
-      console.log(`User: ${username}`);
-      console.log(`User DN: ${userDn}`);
-      console.log(`Attributes found: ${Object.keys(userEntry).join(', ')}`);
-      
-      this.logger.log(`=== Extracting Groups for ${username} ===`);
-      this.logger.log(`User DN: ${userDn}`);
-      this.logger.log(`User entry attributes available: ${Object.keys(userEntry).join(', ')}`);
-      
-      // Log all attributes for debugging
-      for (const [key, value] of Object.entries(userEntry)) {
-        if (key !== 'dn') {
-          this.logger.log(`  ${key}: ${JSON.stringify(value)}`);
-        }
-      }
       
       if (userEntry.memberOf) {
-        console.log(`✓ FOUND memberOf attribute`);
-        console.log(`memberOf value: ${JSON.stringify(userEntry.memberOf)}`);
-        this.logger.log(`✓ Found memberOf attribute: ${JSON.stringify(userEntry.memberOf)}`);
+        this.logger.debug(`Found memberOf attribute for user ${username}`);
         const memberOfArray = Array.isArray(userEntry.memberOf) 
           ? userEntry.memberOf 
           : [userEntry.memberOf];
@@ -327,19 +229,13 @@ export class LdapService {
           // Extract CN from DN (e.g., "CN=GroupName,OU=Groups,DC=example,DC=com" -> "GroupName")
           const match = groupDn.toString().match(/^CN=([^,]+)/i);
           const groupName = match ? match[1] : groupDn.toString();
-          this.logger.log(`  - Extracted group: "${groupName}" from DN: ${groupDn}`);
           return groupName;
         });
-        console.log(`✓ Groups extracted: ${groups.length} groups`);
-        console.log(`Group names: [${groups.join(', ')}]`);
-        this.logger.log(`✓ Total groups extracted from memberOf: ${groups.length}`);
+        this.logger.debug(`Extracted ${groups.length} groups from memberOf`);
       } else {
-        console.log('✗ NO memberOf attribute - trying alternative methods...');
-        this.logger.log('✗ No memberOf attribute found, trying alternative search methods...');
         // Alternative: Search for groups that contain this user
         try {
           // Try Active Directory style groups first
-          this.logger.log(`Searching AD-style groups with filter: (&(objectClass=group)(member=${userDn}))`);
           let groupSearchResult = await client.search(provider.ldapBaseDn!, {
             filter: `(&(objectClass=group)(member=${userDn}))`,
             scope: 'sub',
@@ -349,7 +245,6 @@ export class LdapService {
           // If no results, try POSIX style groups
           if (!groupSearchResult.searchEntries || groupSearchResult.searchEntries.length === 0) {
             const uid = userEntry.uid?.toString() || username;
-            this.logger.log(`No AD groups found. Searching POSIX-style groups with filter: (&(objectClass=posixGroup)(memberUid=${uid}))`);
             groupSearchResult = await client.search(provider.ldapBaseDn!, {
               filter: `(&(objectClass=posixGroup)(memberUid=${uid}))`,
               scope: 'sub',
@@ -359,7 +254,6 @@ export class LdapService {
           
           // If still no results, try groupOfNames/groupOfUniqueNames
           if (!groupSearchResult.searchEntries || groupSearchResult.searchEntries.length === 0) {
-            this.logger.log(`No POSIX groups found. Searching OpenLDAP-style groups...`);
             groupSearchResult = await client.search(provider.ldapBaseDn!, {
               filter: `(&(|(objectClass=groupOfNames)(objectClass=groupOfUniqueNames))(|(member=${userDn})(uniqueMember=${userDn})))`,
               scope: 'sub',
@@ -371,46 +265,19 @@ export class LdapService {
             groups = groupSearchResult.searchEntries.map((groupEntry: any) => {
               return groupEntry.cn?.toString() || groupEntry.dn?.toString() || '';
             }).filter(g => g);
-            this.logger.log(`Found ${groups.length} groups by searching: ${groups.join(', ')}`);
+            this.logger.debug(`Found ${groups.length} groups by searching`);
           } else {
-            this.logger.log('No groups found for user by searching');
+            this.logger.debug('No groups found for user by searching');
           }
         } catch (groupError: any) {
           this.logger.error(`Failed to search for user groups: ${groupError.message}`);
         }
       }
       
-      console.log(`\n=== FINAL LDAP RESULT ===`);
-      console.log(`Email: ${email}`);
-      console.log(`Name: ${name}`);
-      console.log(`Groups found: ${groups.length}`);
-      if (groups.length > 0) {
-        console.log(`Group list: [${groups.join(', ')}]`);
-      } else {
-        console.log('NO GROUPS FOUND!');
-      }
-      console.log('========================\n');
-      
-      this.logger.log(`=== Final group list: [${groups.join(', ')}] ===`);
-
       await client.unbind();
-      this.logger.log(`Returning LDAP user - email: ${email}, name: ${name}, groups: ${groups.length}`);
+      this.logger.debug(`LDAP authentication successful for ${email}, groups: ${groups.length}`);
       return { email, name, groups };
     } catch (error: any) {
-      console.log('\n=== LDAP AUTHENTICATION FAILED ===');
-      console.log(`Error message: ${error.message}`);
-      console.log(`Error code: ${error.code}`);
-      console.log(`Error stack: ${error.stack}`);
-      
-      if (error.message?.includes('InvalidCredentials')) {
-        console.log('REASON: Invalid password for user');
-      } else if (error.message?.includes('ECONNREFUSED')) {
-        console.log('REASON: Cannot connect to LDAP server');
-      } else if (error.message?.includes('ETIMEDOUT')) {
-        console.log('REASON: LDAP server connection timeout');
-      }
-      console.log('===================================\n');
-      
       this.logger.error(`LDAP authentication failed: ${error.message}`);
       return null;
     } finally {
@@ -725,14 +592,11 @@ export class LdapService {
   }
 
   async syncAllLdapGroups(workspaceId: string): Promise<void> {
-    console.log('\n========== SYNC ALL LDAP GROUPS ==========');
-    console.log(`Workspace ID: ${workspaceId}`);
-    
     const providers = await this.authProviderRepo.findEnabledByWorkspace(workspaceId);
     const provider = providers.find(p => p.type === 'ldap');
     
     if (!provider || !provider.isEnabled || !provider.groupSync) {
-      console.log('LDAP not enabled or group sync disabled');
+      this.logger.debug('LDAP not enabled or group sync disabled');
       return;
     }
     
@@ -753,13 +617,12 @@ export class LdapService {
       await client.bind(provider.ldapBindDn!, provider.ldapBindPassword!);
       
       // Search for groups in LDAP using configurable filter
-      console.log('Searching for LDAP groups...');
       let allGroups: Set<string> = new Set();
       let groupDetails: Map<string, any> = new Map();
       
       // Use configured group filter or default to groupOfNames
       const groupFilter = provider.ldapGroupSearchFilter || '(|(objectClass=groupOfNames)(objectClass=groupOfUniqueNames))';
-      console.log(`Using group filter: ${groupFilter}`);
+      this.logger.debug(`Searching for LDAP groups with filter: ${groupFilter}`);
       
       try {
         const searchResult: any = await client.search(provider.ldapBaseDn!, {
@@ -769,35 +632,26 @@ export class LdapService {
         });
         
         if (searchResult.searchEntries && searchResult.searchEntries.length > 0) {
-          console.log(`Found ${searchResult.searchEntries.length} groups:`);
+          this.logger.debug(`Found ${searchResult.searchEntries.length} LDAP groups`);
           searchResult.searchEntries.forEach((entry: any) => {
             const groupName = entry.cn?.toString() || entry.name?.toString();
             if (groupName) {
               allGroups.add(groupName);
               groupDetails.set(groupName, entry);
-              console.log(`  - ${groupName}`);
             }
           });
         } else {
-          console.log('No groups found with the configured filter');
-          console.log('Consider adjusting the LDAP Group Search Filter in settings');
+          this.logger.debug('No groups found with the configured filter');
         }
       } catch (e: any) {
-        console.log(`Group search failed: ${e.message}`);
-        console.log('Please check your LDAP Group Search Filter syntax');
+        this.logger.error(`LDAP group search failed: ${e.message}`);
       }
       
       const uniqueGroups = Array.from(allGroups);
       
-      console.log(`\n========== SUMMARY ==========`);
-      console.log(`Total groups found: ${uniqueGroups.length}`);
-      if (uniqueGroups.length > 0) {
-        console.log(`Groups to sync: [${uniqueGroups.join(', ')}]`);
-      }
-      console.log(`=============================\n`);
+      this.logger.debug(`Found ${uniqueGroups.length} unique LDAP groups to sync`);
       
       // First, remove LDAP groups that no longer exist in LDAP
-      console.log('\n=== REMOVING OBSOLETE LDAP GROUPS ===');
       const existingLdapGroups = await this.db
         .selectFrom('groups')
         .selectAll()
@@ -808,7 +662,7 @@ export class LdapService {
       
       for (const group of existingLdapGroups) {
         if (!allGroups.has(group.name)) {
-          console.log(`Removing obsolete LDAP group: "${group.name}" (not found in LDAP)`);
+          this.logger.debug(`Removing obsolete LDAP group: "${group.name}"`);
           
           // First remove all group memberships
           await this.db
@@ -822,11 +676,8 @@ export class LdapService {
             .set({ deletedAt: new Date() })
             .where('id', '=', group.id)
             .execute();
-          
-          console.log(`✓ Removed group "${group.name}" and its memberships`);
         }
       }
-      console.log('=== OBSOLETE GROUP REMOVAL COMPLETE ===\n');
       
       if (uniqueGroups.length > 0) {
         // Sync groups to database
@@ -843,51 +694,23 @@ export class LdapService {
                 workspaceId: workspaceId,
                 creatorId: null, // System-created group
               });
-              console.log(`✓ Created LDAP group: "${groupName}" (ID: ${newGroup.id})`);
+              this.logger.debug(`Created LDAP group: "${groupName}"`);
             } catch (error: any) {
-              console.log(`✗ Failed to create group "${groupName}": ${error.message}`);
+              this.logger.error(`Failed to create group "${groupName}": ${error.message}`);
             }
           } else {
-            console.log(`Group "${groupName}" already exists`);
+            this.logger.debug(`Group "${groupName}" already exists`);
           }
         }
         
         // Optionally sync group memberships
-        console.log('\\n=== SYNCING GROUP MEMBERSHIPS ===');
         await this.syncAllGroupMemberships(workspaceId, provider, client);
-        console.log('=== GROUP MEMBERSHIP SYNC COMPLETE ===\\n');
       } else {
-        console.log('No LDAP groups found!');
-        console.log('\nTrying to debug LDAP structure...');
-        
-        // Debug: List all objectClasses to understand LDAP structure
-        try {
-          const allEntries: any = await client.search(provider.ldapBaseDn!, {
-            filter: '(objectClass=*)',
-            scope: 'sub',
-            attributes: ['objectClass', 'cn', 'ou', 'dn'],
-            sizeLimit: 100, // Limit to prevent overwhelming output
-          });
-          
-          if (allEntries.searchEntries && allEntries.searchEntries.length > 0) {
-            const objectClasses = new Set<string>();
-            allEntries.searchEntries.forEach((entry: any) => {
-              if (entry.objectClass) {
-                const classes = Array.isArray(entry.objectClass) ? entry.objectClass : [entry.objectClass];
-                classes.forEach((c: any) => objectClasses.add(c.toString()));
-              }
-            });
-            console.log(`\nFound objectClasses in LDAP: ${Array.from(objectClasses).join(', ')}`);
-            console.log(`Total entries scanned: ${allEntries.searchEntries.length}`);
-          }
-        } catch (e) {
-          console.log('Debug scan failed');
-        }
+        this.logger.debug('No LDAP groups found');
       }
       
       await client.unbind();
     } catch (error: any) {
-      console.log(`LDAP group sync error: ${error.message}`);
       this.logger.error(`Failed to sync all LDAP groups: ${error.message}`);
     } finally {
       try {
@@ -896,8 +719,6 @@ export class LdapService {
         // Ignore unbind errors
       }
     }
-    
-    console.log('==========================================\n');
   }
 
   private async syncAllGroupMemberships(
@@ -906,12 +727,7 @@ export class LdapService {
     client: any,
   ): Promise<void> {
     try {
-      console.log('\n=== SYNCING GROUP MEMBERSHIPS ===');
-      console.log(`Workspace: ${workspaceId}`);
-      console.log(`Provider: ${provider.name} (${provider.id})`);
-      
       // First, clear existing LDAP group memberships (keep local groups intact)
-      console.log('\nClearing existing LDAP group memberships...');
       const ldapGroups = await this.db
         .selectFrom('groups')
         .selectAll()
@@ -925,7 +741,6 @@ export class LdapService {
           .deleteFrom('groupUsers')
           .where('groupId', '=', group.id)
           .execute();
-        console.log(`Cleared memberships for group: ${group.name}`);
       }
       
       // Get all groups from database
@@ -939,7 +754,6 @@ export class LdapService {
       const groupMap = new Map<string, string>();
       dbGroups.forEach(g => {
         groupMap.set(g.name.toLowerCase(), g.id);
-        console.log(`DB Group: ${g.name} (${g.id})`);
       });
       
       // Get all users from database
@@ -960,18 +774,13 @@ export class LdapService {
         if (!userEmailMap.has(username)) {
           userEmailMap.set(username, u.id);
         }
-        console.log(`  DB User: ${u.email} (${u.id})`);
       });
       
-      console.log(`Found ${dbUsers.length} users in database`);
+      this.logger.debug(`Syncing group memberships for ${dbUsers.length} users`);
       
       // Search for groups with members in LDAP
-      console.log('\nSearching for group memberships in LDAP...');
-      console.log(`Base DN: ${provider.ldapBaseDn}`);
-      
       // Use configured group filter or default
       const groupFilter = provider.ldapGroupSearchFilter || '(|(objectClass=groupOfNames)(objectClass=groupOfUniqueNames))';
-      console.log(`Group filter: ${groupFilter}`);
       
       // 1. Search for groups with member attributes
       try {
@@ -982,59 +791,46 @@ export class LdapService {
         });
         
         if (groupsWithMembers.searchEntries && groupsWithMembers.searchEntries.length > 0) {
-          console.log(`\nFound ${groupsWithMembers.searchEntries.length} groups in LDAP with filter`);
+          this.logger.debug(`Found ${groupsWithMembers.searchEntries.length} groups in LDAP`);
           
           for (const groupEntry of groupsWithMembers.searchEntries) {
             const groupName = groupEntry.cn?.toString();
             if (!groupName) {
-              console.log(`  Warning: Group entry without cn attribute, skipping`);
               continue;
             }
             
             const groupId = groupMap.get(groupName.toLowerCase());
             if (!groupId) {
-              console.log(`  Group "${groupName}" not in Docmost database, skipping`);
               continue;
             }
-            
-            console.log(`\n  Processing Group: ${groupName}`);
-            console.log(`    Object classes: ${groupEntry.objectClass}`);
             
             // Process member DNs (groupOfNames/groupOfUniqueNames)
             const memberDns = [];
             if (groupEntry.member) {
               const memberArray = Array.isArray(groupEntry.member) ? groupEntry.member : [groupEntry.member];
               memberDns.push(...memberArray);
-              console.log(`    Found ${memberArray.length} 'member' attributes`);
             }
             if (groupEntry.uniqueMember) {
               const uniqueMemberArray = Array.isArray(groupEntry.uniqueMember) ? groupEntry.uniqueMember : [groupEntry.uniqueMember];
               memberDns.push(...uniqueMemberArray);
-              console.log(`    Found ${uniqueMemberArray.length} 'uniqueMember' attributes`);
             }
-            
-            console.log(`    Total member DNs to process: ${memberDns.length}`);
             
             // Process each member DN
             for (const memberDn of memberDns) {
               const dnString = memberDn.toString();
-              console.log(`      Processing DN: ${dnString}`);
               
               // Extract username from DN (e.g., "cn=jianweiz,ou=people,dc=minilab,dc=top" -> "jianweiz")
               const cnMatch = dnString.match(/cn=([^,]+)/i);
               if (!cnMatch) {
-                console.log(`        Could not extract cn from DN`);
                 continue;
               }
               
               const cnValue = cnMatch[1];
-              console.log(`        Extracted CN: ${cnValue}`);
               
               // Look up the actual user entry to get their uid/email
               let actualUsername = cnValue.toLowerCase();
               let ldapEmail: string | null = null;
               try {
-                console.log(`        Looking up user entry in LDAP: ${dnString}`);
                 const userSearch: any = await client.search(dnString, {
                   scope: 'base',
                   attributes: ['uid', 'mail', 'email', 'cn', 'sAMAccountName'],
@@ -1045,53 +841,38 @@ export class LdapService {
                   // Prefer uid over cn for username
                   actualUsername = (userEntry.uid || userEntry.sAMAccountName || userEntry.cn || cnValue).toString().toLowerCase();
                   ldapEmail = (userEntry.mail || userEntry.email)?.toString().toLowerCase() || null;
-                  console.log(`        Found LDAP user - uid: ${userEntry.uid}, cn: ${userEntry.cn}, mail: ${userEntry.mail}`);
-                  console.log(`        Using username: ${actualUsername}, email: ${ldapEmail}`);
                 }
               } catch (e) {
-                console.log(`        Could not look up user entry, using CN as username`);
+                // Could not look up user entry, use CN as username
               }
               
               // Try to find user in database by username or email
-              console.log(`        Looking for user in database...`);
-              
               // First try with LDAP email if available
               let userId: string | undefined;
               if (ldapEmail) {
-                console.log(`        Checking LDAP email: ${ldapEmail}`);
                 userId = userEmailMap.get(ldapEmail);
-                if (userId) {
-                  console.log(`        Found user by LDAP email: ${ldapEmail}`);
-                }
               }
               
               // Then try with username
               if (!userId) {
-                console.log(`        Checking direct username: ${actualUsername}`);
                 userId = userEmailMap.get(actualUsername);
               }
               
               if (!userId) {
-                console.log(`        Username not found directly, trying with email domains...`);
                 // Try with workspace email domains
                 const workspace = await this.workspaceRepo.findById(workspaceId);
                 const defaultDomain = workspace?.emailDomains?.[0] || 'ldap.local';
-                console.log(`        Workspace email domain: ${defaultDomain}`);
                 const possibleEmails = [
                   `${actualUsername}@${defaultDomain}`,
                   actualUsername
                 ];
                 
-                console.log(`        Checking possible emails: ${possibleEmails.join(', ')}`);
                 for (const email of possibleEmails) {
                   userId = userEmailMap.get(email.toLowerCase());
                   if (userId) {
-                    console.log(`        Found user with email: ${email}`);
                     break;
                   }
                 }
-              } else {
-                console.log(`        Found user directly: ${actualUsername}`);
               }
               
               if (userId) {
@@ -1105,14 +886,14 @@ export class LdapService {
                     })
                     .onConflict((oc) => oc.columns(['userId', 'groupId']).doNothing())
                     .execute();
-                  console.log(`    ✓ Added user ${actualUsername} to group ${groupName}`);
+                  this.logger.debug(`Added user ${actualUsername} to group ${groupName}`);
                 } catch (e) {
-                  console.log(`    ✗ Failed to add user ${actualUsername} to group: ${e}`);
+                  this.logger.error(`Failed to add user ${actualUsername} to group: ${e}`);
                 }
               } else {
                 // User not found - check if we should auto-provision
                 if (provider.autoProvisionUsers && ldapEmail) {
-                  console.log(`    ⚠ User ${actualUsername} not found - attempting to auto-provision`);
+                  this.logger.debug(`User ${actualUsername} not found - attempting to auto-provision`);
                   try {
                     // Get user's full name from LDAP
                     const userSearch: any = await client.search(dnString, {
@@ -1142,7 +923,7 @@ export class LdapService {
                       undefined, // trx
                     );
                     
-                    console.log(`    ✓ Auto-provisioned user: ${ldapEmail} (${newUser.id})`);
+                    this.logger.debug(`Auto-provisioned user: ${ldapEmail}`);
                     
                     // Add to group
                     await this.db
@@ -1152,12 +933,11 @@ export class LdapService {
                         groupId: groupId,
                       })
                       .execute();
-                    console.log(`    ✓ Added auto-provisioned user to group ${groupName}`);
                   } catch (error: any) {
-                    console.log(`    ✗ Failed to auto-provision user: ${error.message}`);
+                    this.logger.error(`Failed to auto-provision user: ${error.message}`);
                   }
                 } else {
-                  console.log(`    ⚠ User ${actualUsername} not found in database (user must log in first)`);
+                  this.logger.debug(`User ${actualUsername} not found in database`);
                 }
               }
             }
@@ -1165,14 +945,11 @@ export class LdapService {
             // Process memberUid attributes (POSIX groups)
             if (groupEntry.memberUid) {
               const memberUids = Array.isArray(groupEntry.memberUid) ? groupEntry.memberUid : [groupEntry.memberUid];
-              console.log(`    Found ${memberUids.length} 'memberUid' attributes`);
               
               for (const uid of memberUids) {
                 const username = uid.toString().toLowerCase();
-                console.log(`      Processing memberUid: ${username}`);
                 const workspace = await this.workspaceRepo.findById(workspaceId);
                 const defaultDomain = workspace?.emailDomains?.[0] || 'ldap.local';
-                console.log(`        Checking for user: ${username} or ${username}@${defaultDomain}`);
                 let userId = userEmailMap.get(username) || userEmailMap.get(`${username}@${defaultDomain}`);
                 
                 if (userId) {
@@ -1185,36 +962,22 @@ export class LdapService {
                       })
                       .onConflict((oc) => oc.columns(['userId', 'groupId']).doNothing())
                       .execute();
-                    console.log(`    ✓ Added user ${username} to group ${groupName}`);
+                    this.logger.debug(`Added user ${username} to group ${groupName}`);
                   } catch (e) {
-                    console.log(`    ✗ Failed to add user ${username} to group`);
+                    this.logger.error(`Failed to add user ${username} to group: ${e}`);
                   }
                 } else {
-                  console.log(`    ⚠ User ${username} not found in database`);
+                  this.logger.debug(`User ${username} not found in database`);
                 }
               }
             }
           }
         }
       } catch (e) {
-        console.log('Failed to search for groups with members');
+        this.logger.error('Failed to search for groups with members');
       }
-      
-      // Get final count of group memberships
-      console.log('\n=== MEMBERSHIP SYNC SUMMARY ===');
-      for (const group of ldapGroups) {
-        const memberCount = await this.db
-          .selectFrom('groupUsers')
-          .select(this.db.fn.count('userId').as('count'))
-          .where('groupId', '=', group.id)
-          .executeTakeFirst();
-        console.log(`  ${group.name}: ${memberCount?.count || 0} members`);
-      }
-      
-      console.log('\nGroup membership sync completed');
     } catch (error: any) {
-      console.log(`Error syncing group memberships: ${error.message}`);
-      console.log(`Error details: ${error.stack}`);
+      this.logger.error(`Error syncing group memberships: ${error.message}`);
     }
   }
 
@@ -1223,15 +986,7 @@ export class LdapService {
     ldapGroups: string[],
     workspaceId: string,
   ): Promise<void> {
-    console.log('\n========== GROUP SYNC STARTED ==========');
-    console.log(`User ID: ${userId}`);
-    console.log(`Workspace ID: ${workspaceId}`);
-    console.log(`LDAP Groups count: ${ldapGroups.length}`);
-    console.log(`LDAP Groups: [${ldapGroups.join(', ')}]`);
-    
-    this.logger.log(`=== Starting syncUserGroups ===`);
-    this.logger.log(`User ID: ${userId}, Workspace: ${workspaceId}`);
-    this.logger.log(`LDAP Groups to sync: ${ldapGroups.join(', ')}`);
+    this.logger.debug(`Syncing user groups: ${ldapGroups.length} groups for user ${userId}`);
     
     try {
       // Get all existing groups in the workspace
@@ -1241,8 +996,6 @@ export class LdapService {
         .where('workspaceId', '=', workspaceId)
         .where('deletedAt', 'is', null)
         .execute();
-      
-      this.logger.log(`Found ${existingGroups.length} existing groups in workspace`);
       
       // Create a map of group names to group IDs for quick lookup
       const groupMap = new Map<string, string>();

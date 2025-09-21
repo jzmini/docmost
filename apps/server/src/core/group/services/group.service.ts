@@ -137,24 +137,12 @@ export class GroupService {
     workspaceId: string,
     paginationOptions: PaginationOptions,
   ): Promise<PaginationResult<Group>> {
-    this.logger.log(`=== Fetching groups for workspace ${workspaceId} ===`);
-    this.logger.log(`Pagination: page ${paginationOptions.page}, limit ${paginationOptions.limit}`);
-    
     const groups = await this.groupRepo.getGroupsPaginated(
       workspaceId,
       paginationOptions,
     );
     
-    const total = (groups.meta as any)?.total || 0;
-    this.logger.log(`Found ${groups.items?.length || 0} groups, total: ${total}`);
-    if (groups.items && groups.items.length > 0) {
-      groups.items.forEach((g: any) => {
-        this.logger.log(`  - Group: "${g.name}" (${g.id}), members: ${g.memberCount || 0}, default: ${g.isDefault}`);
-      });
-    } else {
-      this.logger.log('NO GROUPS FOUND IN DATABASE!');
-    }
-    
+    this.logger.debug(`Fetched ${groups.items?.length || 0} groups for workspace ${workspaceId}`);
     return groups;
   }
 

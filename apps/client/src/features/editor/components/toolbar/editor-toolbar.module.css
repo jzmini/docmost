@@ -1,0 +1,36 @@
+.toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background-color: var(--mantine-color-body);
+  border-radius: var(--mantine-radius-default);
+  margin-bottom: 1rem;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+.toolbar::-webkit-scrollbar {
+  height: 6px;
+}
+
+.toolbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.toolbar::-webkit-scrollbar-thumb {
+  background: var(--mantine-color-gray-3);
+  border-radius: 3px;
+}
+
+.toolbar::-webkit-scrollbar-thumb:hover {
+  background: var(--mantine-color-gray-4);
+}
+
+/* Dark mode scrollbar */
+[data-mantine-color-scheme='dark'] .toolbar::-webkit-scrollbar-thumb {
+  background: var(--mantine-color-gray-7);
+}
+
+[data-mantine-color-scheme='dark'] .toolbar::-webkit-scrollbar-thumb:hover {
+  background: var(--mantine-color-gray-6);
+}
