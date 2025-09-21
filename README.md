@@ -1,18 +1,55 @@
 <div align="center">
-    <h1><b>Docmost</b></h1>
+    <h1><b>Docmost (Enhanced Fork)</b></h1>
     <p>
         Open-source collaborative wiki and documentation software.
         <br />
-        <a href="https://docmost.com"><strong>Website</strong></a> | 
+        <strong>This is an enhanced fork of <a href="https://github.com/docmost/docmost">Docmost</a></strong>
+        <br />
+        <a href="https://docmost.com"><strong>Original Website</strong></a> | 
         <a href="https://docmost.com/docs"><strong>Documentation</strong></a> |
         <a href="https://twitter.com/DocmostHQ"><strong>Twitter / X</strong></a>
     </p>
 </div>
 <br />
 
+## Fork Enhancements
+
+This fork includes the following enhancements over the original Docmost v0.23.2:
+
+### 🔐 LDAP Integration
+- **Full LDAP/Active Directory support** with authentication and group synchronization
+- **Auto-provisioning of users** from LDAP groups (configurable)
+- **Unified login UI** with dropdown selector for Local DB and LDAP authentication
+- **LDAP group sync** that automatically manages group membership
+- **Improved user search** supporting LDAP usernames and email addresses
+
+### 🔓 License-Free Features
+- **Removed all Enterprise Edition restrictions** - all features are available without a license
+- **No trial mode limitations** - full functionality without upgrade prompts
+- **Confluence import** and other EE features enabled by default
+
+### 🛠️ UI/UX Improvements
+- **Edit button on shared pages** - allows viewers to quickly login and edit
+- **Smart redirect after login** - automatically returns to the page you were viewing
+- **Email change capability** for user profiles
+- **Improved member search** in spaces (case-insensitive, supports LDAP usernames)
+- **Fixed clipboard copy** functionality for sharing links
+
+### 🐛 Bug Fixes
+- Fixed Docker build to support mirror registries
+- Fixed public page sharing display issues
+- Fixed LDAP group synchronization removing users incorrectly
+- Fixed authentication isolation between local and LDAP users
+
+### 🏗️ Technical Changes
+- Rebased on upstream main branch (includes all updates up to v0.23.2)
+- Database migrations for LDAP support
+- Removed license validation code
+- Enhanced error handling for authentication
+
 ## Getting started
 
-To get started with Docmost, please refer to our [documentation](https://docmost.com/docs) or try our [cloud version](https://docmost.com/pricing) .
+To get started with this enhanced version of Docmost, please refer to the original [documentation](https://docmost.com/docs).
 
 ## Features
 
@@ -36,13 +73,12 @@ To get started with Docmost, please refer to our [documentation](https://docmost
 </p>
 
 ### License
-Docmost core is licensed under the open-source AGPL 3.0 license.  
-Enterprise features are available under an enterprise license (Enterprise Edition).  
 
-All files in the following directories are licensed under the Docmost Enterprise license defined in `packages/ee/License`.
-  - apps/server/src/ee
-  - apps/client/src/ee
-  - packages/ee
+This fork maintains the same licensing as the original Docmost:
+- Core features are licensed under the open-source AGPL 3.0 license
+- Original Enterprise Edition features remain under their respective licenses
+
+**Note**: While this fork removes license restrictions for functionality, it respects the original licensing terms. Users should review the original Docmost licensing for compliance.
 
 ### Contributing
 
