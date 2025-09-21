@@ -64,6 +64,8 @@ export function LdapLoginModal({
         onClose();
         navigate(APP_ROUTE.AUTH.MFA_SETUP_REQUIRED);
       } else {
+        // Successful login without MFA (response is undefined or empty object)
+        setIsLoading(false);
         onClose();
         navigate(APP_ROUTE.HOME);
       }
@@ -99,7 +101,8 @@ export function LdapLoginModal({
             id="ldap-username"
             type="text"
             label={t("LDAP username")}
-            placeholder="Enter your LDAP username"
+            placeholder="Enter your LDAP username (e.g., jz or jianweiz, not email)"
+            description="Use your LDAP username, not your email address"
             variant="filled"
             disabled={isLoading}
             data-autofocus

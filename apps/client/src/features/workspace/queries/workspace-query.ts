@@ -44,6 +44,8 @@ export function useWorkspacePublicDataQuery(): UseQueryResult<
   return useQuery({
     queryKey: ["workspace-public"],
     queryFn: () => getWorkspacePublicData(),
+    staleTime: 0,
+    gcTime: 0,
   });
 }
 

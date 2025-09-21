@@ -8,16 +8,22 @@ interface ILdapLogin {
   workspaceId: string;
 }
 
-export async function ldapLogin(data: ILdapLogin): Promise<ILoginResponse> {
+export async function ldapLogin(data: ILdapLogin): Promise<ILoginResponse | undefined> {
   const requestData = {
     username: data.username,
     password: data.password,
   };
 
-  const response = await api.post<ILoginResponse>(
-    `/sso/ldap/${data.providerId}/login`,
-    requestData
-  );
+  try {
+    const response = await api.post<ILoginResponse>(
+      `/sso/ldap/${data.providerId}/login`,
+      requestData
+    );
 
-  return response.data;
+    // The backend returns void for successful login without MFA
+    // The interceptor will handle unwrapping the response
+    return response.data || undefined;
+  } catch (error) {
+    throw error;
+  }
 }

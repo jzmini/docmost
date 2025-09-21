@@ -11,7 +11,6 @@ import {
 import { LoginDto } from './dto/login.dto';
 import { AuthService } from './services/auth.service';
 import { SetupGuard } from './guards/setup.guard';
-import { EnvironmentService } from '../../integrations/environment/environment.service';
 import { CreateAdminUserDto } from './dto/create-admin-user.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { AuthUser } from '../../common/decorators/auth-user.decorator';
@@ -24,6 +23,7 @@ import { VerifyUserTokenDto } from './dto/verify-user-token.dto';
 import { FastifyReply } from 'fastify';
 import { validateSsoEnforcement } from './auth.util';
 import { ModuleRef } from '@nestjs/core';
+import { EnvironmentService } from '../../integrations/environment/environment.service';
 
 @Controller('auth')
 export class AuthController {
@@ -42,6 +42,11 @@ export class AuthController {
     @Res({ passthrough: true }) res: FastifyReply,
     @Body() loginInput: LoginDto,
   ) {
+    console.log('\n=== REGULAR LOGIN ATTEMPT ===');
+    console.log(`Email: ${loginInput.email}`);
+    console.log(`Workspace: ${workspace.name} (${workspace.id})`);
+    console.log(`Timestamp: ${new Date().toISOString()}`);
+    
     validateSsoEnforcement(workspace);
 
     let MfaModule: any;
@@ -176,6 +181,7 @@ export class AuthController {
   setAuthCookie(res: FastifyReply, token: string) {
     res.setCookie('authToken', token, {
       httpOnly: true,
+      sameSite: 'lax',
       path: '/',
       expires: this.environmentService.getCookieExpiresIn(),
       secure: this.environmentService.isHttps(),

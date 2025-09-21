@@ -6,15 +6,20 @@ import { IAuthProvider } from "@/ee/security/types/security.types.ts";
 import { buildSsoLoginUrl } from "@/ee/security/sso.utils.ts";
 import { SSO_PROVIDER } from "@/ee/security/contants.ts";
 import { GoogleIcon } from "@/components/icons/google-icon.tsx";
-import { isCloud } from "@/lib/config.ts";
 import { LdapLoginModal } from "@/ee/components/ldap-login-modal.tsx";
 
 export default function SsoLogin() {
+  console.log('SsoLogin component rendering');
   const { data, isLoading } = useWorkspacePublicDataQuery();
   const [ldapModalOpened, setLdapModalOpened] = useState(false);
   const [selectedLdapProvider, setSelectedLdapProvider] = useState<IAuthProvider | null>(null);
 
+  console.log('SsoLogin - data:', data);
+  console.log('SsoLogin - isLoading:', isLoading);
+  console.log('SsoLogin - authProviders:', data?.authProviders);
+
   if (!data?.authProviders || data?.authProviders?.length === 0) {
+    console.log('SsoLogin - returning null, no auth providers');
     return null;
   }
 
@@ -57,21 +62,30 @@ export default function SsoLogin() {
         />
       )}
 
-      {(isCloud() || data.hasLicenseKey) && (
+      {data.authProviders.length > 0 && (
         <>
           <Stack align="stretch" justify="center" gap="sm">
-            {data.authProviders.map((provider) => (
-              <div key={provider.id}>
-                <Button
-                  onClick={() => handleSsoLogin(provider)}
-                  leftSection={getProviderIcon(provider)}
-                  variant="default"
-                  fullWidth
-                >
-                  {provider.name}
-                </Button>
-              </div>
-            ))}
+            {data.authProviders.map((provider, index) => {
+              // For LDAP providers, show a more descriptive name if they all have the same name
+              const ldapCount = data.authProviders.filter(p => p.type === SSO_PROVIDER.LDAP).length;
+              const ldapIndex = data.authProviders.slice(0, index + 1).filter(p => p.type === SSO_PROVIDER.LDAP).length;
+              const displayName = provider.type === SSO_PROVIDER.LDAP && ldapCount > 1 && provider.name === 'LDAP' 
+                ? `${provider.name} ${ldapIndex}` 
+                : provider.name;
+                
+              return (
+                <div key={provider.id}>
+                  <Button
+                    onClick={() => handleSsoLogin(provider)}
+                    leftSection={getProviderIcon(provider)}
+                    variant="default"
+                    fullWidth
+                  >
+                    {displayName}
+                  </Button>
+                </div>
+              );
+            })}
           </Stack>
 
           {!data.enforceSso && (

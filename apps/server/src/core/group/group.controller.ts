@@ -62,11 +62,13 @@ export class GroupController {
     
     this.logger.log(`User has permission, syncing LDAP groups first...`);
     
-    // Sync LDAP groups before fetching
+    // Sync LDAP groups and memberships before fetching
     try {
-      console.log('\n=== TRIGGERING LDAP GROUP SYNC FROM GROUPS PAGE ===');
+      console.log('\n=== TRIGGERING LDAP SYNC FROM GROUPS PAGE ===');
+      console.log('This will sync groups and update memberships for existing users.');
+      console.log('Note: Only users who have logged into Docmost will be added to groups.');
       await this.ldapService.syncAllLdapGroups(workspace.id);
-      console.log('=== LDAP GROUP SYNC COMPLETE ===\n');
+      console.log('=== LDAP SYNC COMPLETE ===\n');
     } catch (error: any) {
       console.log(`LDAP sync error (non-fatal): ${error.message}`);
       this.logger.warn(`LDAP group sync failed: ${error.message}`);

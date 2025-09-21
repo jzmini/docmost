@@ -8,9 +8,11 @@ import { getAppName } from "@/lib/config.ts";
 import { Helmet } from "react-helmet-async";
 import { useTranslation } from "react-i18next";
 import { AccountMfaSection } from "@/features/user/components/account-mfa-section";
+import useCurrentUser from "@/features/user/hooks/use-current-user";
 
 export default function AccountSettings() {
   const { t } = useTranslation();
+  const { data: currentUser } = useCurrentUser();
 
   return (
     <>
@@ -29,9 +31,14 @@ export default function AccountSettings() {
 
       <ChangeEmail />
 
-      <Divider my="lg" />
-
-      <ChangePassword />
+      {/* Only show password change for non-LDAP users */}
+      {/* LDAP users should change passwords through their LDAP/Active Directory system */}
+      {!currentUser?.user?.isLdapUser && (
+        <>
+          <Divider my="lg" />
+          <ChangePassword />
+        </>
+      )}
 
       <Divider my="lg" />
 

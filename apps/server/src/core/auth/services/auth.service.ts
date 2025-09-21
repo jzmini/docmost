@@ -93,6 +93,23 @@ export class AuthService {
       throw new NotFoundException('User not found');
     }
 
+    // Check if user is an LDAP user
+    const authAccount = await this.db
+      .selectFrom('authAccounts')
+      .innerJoin('authProviders', 'authProviders.id', 'authAccounts.authProviderId')
+      .where('authAccounts.userId', '=', userId)
+      .where('authAccounts.workspaceId', '=', workspaceId)
+      .where('authProviders.type', '=', 'ldap')
+      .where('authAccounts.deletedAt', 'is', null)
+      .select(['authProviders.type', 'authProviders.name'])
+      .executeTakeFirst();
+
+    if (authAccount) {
+      throw new BadRequestException(
+        'Password cannot be changed for LDAP users. Please change your password through your LDAP/Active Directory system.'
+      );
+    }
+
     const comparePasswords = await comparePasswordHash(
       dto.oldPassword,
       user.password,

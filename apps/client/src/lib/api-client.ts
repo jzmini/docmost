@@ -9,16 +9,15 @@ const api: AxiosInstance = axios.create({
 
 api.interceptors.response.use(
   (response) => {
-    // we need the response headers for these endpoints
-    const exemptEndpoints = ["/api/pages/export", "/api/spaces/export"];
-    if (response.request.responseURL) {
-      const path = new URL(response.request.responseURL)?.pathname;
-      if (path && exemptEndpoints.includes(path)) {
-        return response;
-      }
+    // The server wraps all responses in { data: ..., success: true, status: 200 }
+    // Unwrap the response here to make it transparent to services
+    if (response.data && typeof response.data === 'object' && 'data' in response.data && 'success' in response.data && 'status' in response.data) {
+      console.log('API Interceptor: Unwrapping response from', response.config.url);
+      console.log('API Interceptor: Original response:', response.data);
+      response.data = response.data.data;
+      console.log('API Interceptor: Unwrapped data:', response.data);
     }
-
-    return response.data;
+    return response;
   },
   (error) => {
     if (error.response) {

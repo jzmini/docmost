@@ -21,9 +21,7 @@ import {
 import { useTranslation } from "react-i18next";
 import { useDebouncedValue } from "@mantine/hooks";
 import { useGetSpacesQuery } from "@/features/space/queries/space-query";
-import { useLicense } from "@/ee/hooks/use-license";
 import classes from "./search-spotlight-filters.module.css";
-import { isCloud } from "@/lib/config.ts";
 
 interface SearchSpotlightFiltersProps {
   onFiltersChange?: (filters: any) => void;
@@ -35,7 +33,6 @@ export function SearchSpotlightFilters({
   spaceId,
 }: SearchSpotlightFiltersProps) {
   const { t } = useTranslation();
-  const { hasLicenseKey } = useLicense();
   const [selectedSpaceId, setSelectedSpaceId] = useState<string | null>(
     spaceId || null,
   );
@@ -80,7 +77,6 @@ export function SearchSpotlightFilters({
     {
       value: "attachment",
       label: t("Attachments"),
-      disabled: !isCloud() && !hasLicenseKey,
     },
   ];
 
@@ -227,20 +223,13 @@ export function SearchSpotlightFilters({
             <Menu.Item
               key={option.value}
               onClick={() =>
-                !option.disabled &&
                 contentType !== option.value &&
                 handleFilterChange("contentType", option.value)
               }
-              disabled={option.disabled}
             >
               <Group flex="1" gap="xs">
                 <div>
                   <Text size="sm">{option.label}</Text>
-                  {option.disabled && (
-                    <Badge size="xs" mt={4}>
-                      {t("Enterprise")}
-                    </Badge>
-                  )}
                 </div>
                 {contentType === option.value && <IconCheck size={20} />}
               </Group>

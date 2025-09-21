@@ -90,7 +90,7 @@ function ImportFormatSelection({ spaceId, onClose }: ImportFormatSelection) {
   const confluenceFileRef = useRef<() => void>(null);
   const zipFileRef = useRef<() => void>(null);
 
-  const canUseConfluence = isCloud() || workspace?.hasLicenseKey;
+  const canUseConfluence = true;
 
   const handleZipUpload = async (selectedFile: File, source: string) => {
     if (!selectedFile) {

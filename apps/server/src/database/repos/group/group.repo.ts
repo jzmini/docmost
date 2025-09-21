@@ -109,6 +109,7 @@ export class GroupRepo {
       .selectAll('groups')
       .select((eb) => this.withMemberCount(eb))
       .where('workspaceId', '=', workspaceId)
+      .where('deletedAt', 'is', null)
       .orderBy('memberCount', 'desc')
       .orderBy('createdAt', 'asc');
 

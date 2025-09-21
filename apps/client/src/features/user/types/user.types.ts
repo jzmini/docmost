@@ -21,6 +21,8 @@ export interface IUser {
   fullPageWidth: boolean; // used for update
   pageEditMode: string; // used for update
   hasGeneratedPassword?: boolean;
+  isLdapUser?: boolean;
+  authProvider?: string;
 }
 
 export interface ICurrentUser {

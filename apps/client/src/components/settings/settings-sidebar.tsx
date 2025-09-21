@@ -122,7 +122,6 @@ export default function SettingsSidebar() {
     }
 
     if (item.isCloud && item.isEnterprise) {
-      if (!(isCloud() || workspace?.hasLicenseKey)) return false;
       return item.isAdmin ? isAdmin : true;
     }
 
@@ -135,7 +134,7 @@ export default function SettingsSidebar() {
     }
 
     if (item.isEnterprise) {
-      return workspace?.hasLicenseKey ? (item.isAdmin ? isAdmin : true) : false;
+      return item.isAdmin ? isAdmin : true;
     }
 
     if (item.isAdmin) {
@@ -146,9 +145,6 @@ export default function SettingsSidebar() {
   };
 
   const isItemDisabled = (item: DataItem) => {
-    if (item.showDisabledInNonEE && item.isEnterprise) {
-      return !(isCloud() || workspace?.hasLicenseKey);
-    }
     return false;
   };
 
@@ -182,9 +178,7 @@ export default function SettingsSidebar() {
               prefetchHandler = prefetchBilling;
               break;
             case "License & Edition":
-              if (workspace?.hasLicenseKey) {
-                prefetchHandler = prefetchLicense;
-              }
+              prefetchHandler = prefetchLicense;
               break;
             case "Security & SSO":
               prefetchHandler = prefetchSsoProviders;

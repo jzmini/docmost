@@ -56,10 +56,6 @@ export class WorkspaceRepo {
       query = query.select(this.withMemberCount);
     }
 
-    if (opts?.withLicenseKey) {
-      query = query.select('licenseKey');
-    }
-
     if (opts?.withLock && opts?.trx) {
       query = query.forUpdate();
     }

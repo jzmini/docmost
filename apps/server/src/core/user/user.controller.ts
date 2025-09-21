@@ -37,10 +37,18 @@ export class UserController {
     const workspaceInfo = {
       ...rest,
       memberCount,
-      hasLicenseKey: Boolean(licenseKey),
+      hasLicenseKey: true,
     };
 
-    return { user: authUser, workspace: workspaceInfo };
+    // Check if user is an LDAP user
+    const authAccount = await this.userService.getUserAuthProvider(authUser.id, workspace.id);
+    const userInfo = {
+      ...authUser,
+      isLdapUser: authAccount?.type === 'ldap',
+      authProvider: authAccount?.type,
+    };
+
+    return { user: userInfo, workspace: workspaceInfo };
   }
 
   @HttpCode(HttpStatus.OK)

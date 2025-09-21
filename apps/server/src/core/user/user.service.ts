@@ -9,10 +9,15 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { comparePasswordHash } from 'src/common/helpers/utils';
 import { Workspace } from '@docmost/db/types/entity.types';
 import { validateSsoEnforcement } from '../auth/auth.util';
+import { InjectKysely } from 'nestjs-kysely';
+import { KyselyDB } from '@docmost/db/types/kysely.types';
 
 @Injectable()
 export class UserService {
-  constructor(private userRepo: UserRepo) {}
+  constructor(
+    private userRepo: UserRepo,
+    @InjectKysely() private readonly db: KyselyDB,
+  ) {}
 
   async findById(userId: string, workspaceId: string) {
     return this.userRepo.findById(userId, workspaceId);
@@ -92,5 +97,18 @@ export class UserService {
 
     await this.userRepo.updateUser(updateUserDto, userId, workspace.id);
     return user;
+  }
+
+  async getUserAuthProvider(userId: string, workspaceId: string) {
+    const authAccount = await this.db
+      .selectFrom('authAccounts')
+      .innerJoin('authProviders', 'authProviders.id', 'authAccounts.authProviderId')
+      .where('authAccounts.userId', '=', userId)
+      .where('authAccounts.workspaceId', '=', workspaceId)
+      .where('authAccounts.deletedAt', 'is', null)
+      .select(['authProviders.type', 'authProviders.name', 'authProviders.id'])
+      .executeTakeFirst();
+
+    return authAccount;
   }
 }

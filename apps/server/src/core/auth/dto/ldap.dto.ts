@@ -23,9 +23,9 @@ export class LdapTestDto {
   @IsString()
   ldapBindDn: string;
 
-  @IsNotEmpty()
+  @IsOptional()
   @IsString()
-  ldapBindPassword: string;
+  ldapBindPassword?: string;
 
   @IsNotEmpty()
   @IsString()

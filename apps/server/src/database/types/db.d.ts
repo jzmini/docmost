@@ -67,6 +67,7 @@ export interface AuthProviders {
   ldapBindDn: string | null;
   ldapBindPassword: string | null;
   ldapReadonly: Generated<boolean>;
+  autoProvisionUsers: Generated<boolean>;
   ldapTlsCaCert: string | null;
   ldapTlsEnabled: Generated<boolean | null>;
   ldapUrl: string | null;

@@ -19,6 +19,7 @@ export interface IAuthProvider {
   ldapTlsEnabled: boolean;
   ldapTlsCaCert: string;
   ldapReadonly: boolean;
+  autoProvisionUsers: boolean;
   allowSignup: boolean;
   isEnabled: boolean;
   groupSync: boolean;

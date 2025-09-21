@@ -17,10 +17,10 @@ export default function ActivateLicense() {
   return (
     <Group justify="flex-end" wrap="nowrap" mb="sm">
       <Button onClick={open}>
-        {workspace?.hasLicenseKey ? t("Update license") : t("Add license")}
+        {t("Update license")}
       </Button>
 
-      {workspace?.hasLicenseKey && <RemoveLicense />}
+      <RemoveLicense />
 
       <Modal
         size="550"

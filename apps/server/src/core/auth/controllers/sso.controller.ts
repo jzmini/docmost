@@ -20,6 +20,7 @@ import { AuthUser } from '../../../common/decorators/auth-user.decorator';
 import { Workspace, User } from '@docmost/db/types/entity.types';
 import { AuthProviderRepo, CreateAuthProviderDto, UpdateAuthProviderDto } from '@docmost/db/repos/auth-provider/auth-provider.repo';
 import { LdapService } from '../services/ldap.service';
+import { EnvironmentService } from '../../../integrations/environment/environment.service';
 import { LdapLoginDto, LdapTestDto } from '../dto/ldap.dto';
 import { FastifyReply } from 'fastify';
 import { UserRole } from '../../../common/helpers/types/permission';
@@ -37,6 +38,7 @@ export class SsoController {
     private authProviderRepo: AuthProviderRepo,
     private ldapService: LdapService,
     private readonly workspaceAbility: WorkspaceAbilityFactory,
+    private readonly environmentService: EnvironmentService,
   ) {}
 
   private checkWorkspaceManagePermission(user: User, workspace: Workspace) {
@@ -53,15 +55,11 @@ export class SsoController {
     @AuthUser() user: User,
   ) {
     this.checkWorkspaceManagePermission(user, workspace);
-    const providers = await this.authProviderRepo.findByWorkspace(workspace.id);
     
-    console.log('Providers from DB:', providers.map(p => ({
-      id: p.id,
-      type: p.type,
-      connectionStatus: p.connectionStatus,
-      lastCheckedAt: p.lastCheckedAt,
-      lastError: p.lastError
-    })));
+    // Clean up old deleted providers first
+    await this.authProviderRepo.cleanupOldDeletedProviders(workspace.id);
+    
+    const providers = await this.authProviderRepo.findByWorkspace(workspace.id);
     
     // Check connection status for LDAP providers when loading the page
     for (const provider of providers) {
@@ -77,11 +75,11 @@ export class SsoController {
       }
     }
     
-    // Remove sensitive data
+    // Mask sensitive data
     return providers.map(provider => ({
       ...provider,
-      ldapBindPassword: undefined,
-      ldapTlsCaCert: provider.ldapTlsCaCert ? '***' : undefined,
+      ldapBindPassword: provider.ldapBindPassword ? '***MASKED***' : undefined,
+      ldapTlsCaCert: provider.ldapTlsCaCert ? '***MASKED***' : undefined,
     }));
   }
 
@@ -99,11 +97,11 @@ export class SsoController {
       throw new Error('Provider not found');
     }
     
-    // Remove sensitive data
+    // Mask sensitive data
     return {
       ...provider,
-      ldapBindPassword: undefined,
-      ldapTlsCaCert: provider.ldapTlsCaCert ? '***' : undefined,
+      ldapBindPassword: provider.ldapBindPassword ? '***MASKED***' : undefined,
+      ldapTlsCaCert: provider.ldapTlsCaCert ? '***MASKED***' : undefined,
     };
   }
 
@@ -121,11 +119,11 @@ export class SsoController {
       creatorId: user.id,
     });
     
-    // Remove sensitive data
+    // Mask sensitive data
     return {
       ...provider,
-      ldapBindPassword: undefined,
-      ldapTlsCaCert: provider.ldapTlsCaCert ? '***' : undefined,
+      ldapBindPassword: provider.ldapBindPassword ? '***MASKED***' : undefined,
+      ldapTlsCaCert: provider.ldapTlsCaCert ? '***MASKED***' : undefined,
     };
   }
 
@@ -148,11 +146,11 @@ export class SsoController {
       throw new Error('Provider not found');
     }
     
-    // Remove sensitive data
+    // Mask sensitive data
     return {
       ...provider,
-      ldapBindPassword: undefined,
-      ldapTlsCaCert: provider.ldapTlsCaCert ? '***' : undefined,
+      ldapBindPassword: provider.ldapBindPassword ? '***MASKED***' : undefined,
+      ldapTlsCaCert: provider.ldapTlsCaCert ? '***MASKED***' : undefined,
     };
   }
 
@@ -183,7 +181,9 @@ export class SsoController {
       );
       
       this.setAuthCookie(res, authToken);
-      return { success: true };
+      // Return nothing (void) for successful login, just like regular login does
+      // The frontend will navigate to home when response is successful
+      return;
     } catch (error: any) {
       this.logger.error(`LDAP login failed: ${error.message}`);
       throw error;
@@ -217,6 +217,17 @@ export class SsoController {
   ) {
     try {
       this.checkWorkspaceManagePermission(user, workspace);
+      
+      // If password is not provided, try to use the saved password
+      if (!testDto.ldapBindPassword) {
+        // Find an existing LDAP provider to get the saved password
+        const providers = await this.authProviderRepo.findByWorkspace(workspace.id);
+        const ldapProvider = providers.find(p => p.type === 'ldap' && p.ldapBindPassword);
+        if (ldapProvider && ldapProvider.ldapBindPassword) {
+          testDto.ldapBindPassword = ldapProvider.ldapBindPassword;
+        }
+      }
+      
       const result = await this.ldapService.testConnection(testDto);
       return result;
     } catch (error: any) {
@@ -226,11 +237,9 @@ export class SsoController {
   }
 
   private setAuthCookie(res: FastifyReply, authToken: string) {
-    const isProduction = process.env.NODE_ENV === 'production';
-    
     res.setCookie('authToken', authToken, {
       httpOnly: true,
-      secure: isProduction,
+      secure: this.environmentService.isHttps(),
       sameSite: 'lax',
       path: '/',
       maxAge: 60 * 60 * 24 * 30, // 30 days

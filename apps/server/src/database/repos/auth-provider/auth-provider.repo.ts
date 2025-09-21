@@ -20,6 +20,7 @@ export interface CreateAuthProviderDto {
   ldapTlsEnabled?: boolean;
   ldapTlsCaCert?: string;
   ldapReadonly?: boolean;
+  autoProvisionUsers?: boolean;
   ldapConfig?: any;
   settings?: any;
   isEnabled?: boolean;
@@ -39,6 +40,7 @@ export interface UpdateAuthProviderDto {
   ldapTlsEnabled?: boolean;
   ldapTlsCaCert?: string;
   ldapReadonly?: boolean;
+  autoProvisionUsers?: boolean;
   ldapConfig?: any;
   settings?: any;
   isEnabled?: boolean;
@@ -72,6 +74,7 @@ export class AuthProviderRepo {
         ldapTlsEnabled: data.ldapTlsEnabled || false,
         ldapTlsCaCert: data.ldapTlsCaCert,
         ldapReadonly: data.ldapReadonly !== undefined ? data.ldapReadonly : true,  // Default to true (read-only)
+        autoProvisionUsers: data.autoProvisionUsers !== undefined ? data.autoProvisionUsers : false,  // Default to false for security
         ldapConfig: data.ldapConfig || {},
         settings: data.settings || {},
         isEnabled: data.isEnabled !== undefined ? data.isEnabled : false,  // Default to false until properly configured
@@ -141,10 +144,23 @@ export class AuthProviderRepo {
   ): Promise<AuthProvider | undefined> {
     const db = dbOrTx(this.db, trx);
     
+    // Remove undefined fields to avoid overwriting existing values
+    const updateData: any = { ...data };
+    Object.keys(updateData).forEach(key => {
+      if (updateData[key] === undefined) {
+        delete updateData[key];
+      }
+    });
+    
+    // Don't overwrite password if not provided
+    if (updateData.ldapBindPassword === '' || updateData.ldapBindPassword === null) {
+      delete updateData.ldapBindPassword;
+    }
+    
     return (await db
       .updateTable('authProviders')
       .set({
-        ...data,
+        ...updateData,
         updatedAt: new Date(),
       })
       .where('id', '=', id)
@@ -169,6 +185,21 @@ export class AuthProviderRepo {
       })
       .where('id', '=', id)
       .where('workspaceId', '=', workspaceId)
+      .execute();
+  }
+  
+  async cleanupOldDeletedProviders(
+    workspaceId: string,
+    trx?: KyselyTransaction,
+  ): Promise<void> {
+    const db = dbOrTx(this.db, trx);
+    
+    // Immediately delete all soft-deleted providers
+    // This provides a cleaner user experience as deleted providers won't linger
+    await db
+      .deleteFrom('authProviders')
+      .where('workspaceId', '=', workspaceId)
+      .where('deletedAt', 'is not', null)
       .execute();
   }
 }

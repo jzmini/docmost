@@ -61,6 +61,9 @@ export function LoginForm() {
     return <Error404 />;
   }
 
+  console.log('LoginForm - data:', data);
+  console.log('LoginForm - rendering SsoLogin component');
+
   return (
     <Container size={420} className={classes.container}>
       <Box p="xl" className={classes.containerBox}>

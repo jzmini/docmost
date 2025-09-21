@@ -36,6 +36,7 @@ const ssoSchema = z.object({
   ldapTlsEnabled: z.boolean(),
   ldapTlsCaCert: z.string().optional(),
   ldapReadonly: z.boolean(),
+  autoProvisionUsers: z.boolean(),
   isEnabled: z.boolean(),
   allowSignup: z.boolean(),
   groupSync: z.boolean(),
@@ -57,20 +58,25 @@ export function SsoLDAPForm({ provider, onClose }: SsoFormProps) {
   const [testUsername, setTestUsername] = useState("");
   const [testPassword, setTestPassword] = useState("");
 
+  console.log('SsoLDAPForm - provider data:', provider);
+  console.log('SsoLDAPForm - ldapBindPassword:', provider.ldapBindPassword);
+  console.log('SsoLDAPForm - autoProvisionUsers:', provider.autoProvisionUsers);
+
   const form = useForm<SSOFormValues>({
     initialValues: {
       name: provider.name || "",
       ldapUrl: provider.ldapUrl || "",
       ldapBindDn: provider.ldapBindDn || "",
-      ldapBindPassword: provider.ldapBindPassword || "",
+      ldapBindPassword: provider.ldapBindPassword === '***MASKED***' ? '' : (provider.ldapBindPassword || ""),
       ldapBaseDn: provider.ldapBaseDn || "",
       ldapUserSearchFilter:
         provider.ldapUserSearchFilter || "(mail={{username}})",
       ldapGroupSearchFilter:
         provider.ldapGroupSearchFilter || "(|(objectClass=groupOfNames)(objectClass=groupOfUniqueNames))",
       ldapTlsEnabled: provider.ldapTlsEnabled || false,
-      ldapTlsCaCert: provider.ldapTlsCaCert || "",
+      ldapTlsCaCert: provider.ldapTlsCaCert === '***MASKED***' ? '' : (provider.ldapTlsCaCert || ""),
       ldapReadonly: provider.ldapReadonly !== undefined ? provider.ldapReadonly : true,
+      autoProvisionUsers: provider.autoProvisionUsers || false,
       isEnabled: provider.isEnabled,
       allowSignup: provider.allowSignup,
       groupSync: provider.groupSync || false,
@@ -86,12 +92,12 @@ export function SsoLDAPForm({ provider, onClose }: SsoFormProps) {
       const testData: any = {
         ldapUrl: form.values.ldapUrl,
         ldapBindDn: form.values.ldapBindDn,
-        ldapBindPassword: form.values.ldapBindPassword,
+        ldapBindPassword: form.values.ldapBindPassword || (provider.ldapBindPassword === '***MASKED***' ? undefined : ''),
         ldapBaseDn: form.values.ldapBaseDn,
         ldapUserSearchFilter: form.values.ldapUserSearchFilter,
         ldapGroupSearchFilter: form.values.ldapGroupSearchFilter,
         ldapTlsEnabled: form.values.ldapTlsEnabled,
-        ldapTlsCaCert: form.values.ldapTlsCaCert,
+        ldapTlsCaCert: form.values.ldapTlsCaCert || (provider.ldapTlsCaCert === '***MASKED***' ? undefined : ''),
       };
 
       if (includeUserAuth && testUsername && testPassword) {
@@ -120,6 +126,10 @@ export function SsoLDAPForm({ provider, onClose }: SsoFormProps) {
   };
 
   const handleSubmit = async (values: SSOFormValues) => {
+    console.log('handleSubmit - values:', values);
+    console.log('handleSubmit - form.isDirty():', form.isDirty());
+    console.log('handleSubmit - dirtyFields:', Object.keys(values).filter(key => form.isDirty(key)));
+    
     const ssoData: Partial<IAuthProvider> = {
       providerId: provider.id,
     };
@@ -132,7 +142,7 @@ export function SsoLDAPForm({ provider, onClose }: SsoFormProps) {
     if (form.isDirty("ldapBindDn")) {
       ssoData.ldapBindDn = values.ldapBindDn;
     }
-    if (form.isDirty("ldapBindPassword")) {
+    if (form.isDirty("ldapBindPassword") && values.ldapBindPassword !== '') {
       ssoData.ldapBindPassword = values.ldapBindPassword;
     }
     if (form.isDirty("ldapBaseDn")) {
@@ -152,7 +162,9 @@ export function SsoLDAPForm({ provider, onClose }: SsoFormProps) {
     ssoData.allowSignup = values.allowSignup;
     ssoData.groupSync = values.groupSync;
     ssoData.ldapReadonly = values.ldapReadonly;
+    ssoData.autoProvisionUsers = values.autoProvisionUsers;
 
+    console.log('handleSubmit - ssoData being sent:', ssoData);
     await updateSsoProviderMutation.mutateAsync(ssoData);
     form.resetDirty();
     onClose();
@@ -226,10 +238,11 @@ export function SsoLDAPForm({ provider, onClose }: SsoFormProps) {
 
           <TextInput
             label="Bind Password"
-            description="Password for the service account"
+            description={provider.ldapBindPassword === '***MASKED***' ? "Password is saved. Leave empty to keep current password" : "Password for the service account"}
             type="password"
-            placeholder="••••••••"
+            placeholder={provider.ldapBindPassword === '***MASKED***' ? "(Password is saved - leave empty to keep)" : "••••••••"}
             {...form.getInputProps("ldapBindPassword")}
+            rightSection={provider.ldapBindPassword === '***MASKED***' ? <IconCheck size={16} color="green" /> : null}
           />
 
           <TextInput
@@ -248,7 +261,7 @@ export function SsoLDAPForm({ provider, onClose }: SsoFormProps) {
 
           <TextInput
             label="Group Search Filter"
-            description="LDAP filter to find groups (e.g., groupOfNames, posixGroup, or AD groups)"
+            description="LDAP filter to find groups. Only groups matching this filter will be synced to Docmost."
             placeholder="(|(objectClass=groupOfNames)(objectClass=groupOfUniqueNames))"
             {...form.getInputProps("ldapGroupSearchFilter")}
           />
@@ -305,6 +318,20 @@ export function SsoLDAPForm({ provider, onClose }: SsoFormProps) {
           </Group>
 
           <Group justify="space-between">
+            <div>
+              <Text size="sm">{t("Auto-provision Users")}</Text>
+              <Text size="xs" c="dimmed">
+                Automatically create user accounts during group sync for LDAP users who haven't logged in yet
+              </Text>
+            </div>
+            <Switch
+              className={classes.switch}
+              checked={form.values.autoProvisionUsers}
+              {...form.getInputProps("autoProvisionUsers")}
+            />
+          </Group>
+
+          <Group justify="space-between">
             <div>{t("Group sync")}</div>
             <Switch
               className={classes.switch}
@@ -314,7 +341,12 @@ export function SsoLDAPForm({ provider, onClose }: SsoFormProps) {
           </Group>
 
           <Group justify="space-between">
-            <div>{t("Allow signup")}</div>
+            <div>
+              <Text size="sm">{t("Allow self-registration")}</Text>
+              <Text size="xs" c="dimmed">
+                For future use. LDAP users are always synced on login.
+              </Text>
+            </div>
             <Switch
               className={classes.switch}
               checked={form.values.allowSignup}
@@ -371,14 +403,14 @@ export function SsoLDAPForm({ provider, onClose }: SsoFormProps) {
                 variant="default" 
                 onClick={() => handleTestConnection(false)}
                 loading={isTesting}
-                disabled={!form.values.ldapUrl || !form.values.ldapBindDn || !form.values.ldapBindPassword || !form.values.ldapBaseDn}
+                disabled={!form.values.ldapUrl || !form.values.ldapBindDn || (!form.values.ldapBindPassword && provider.ldapBindPassword !== '***MASKED***') || !form.values.ldapBaseDn}
               >
                 {t("Test Connection")}
               </Button>
               <Button 
                 variant="light" 
                 onClick={openTestModal}
-                disabled={!form.values.ldapUrl || !form.values.ldapBindDn || !form.values.ldapBindPassword || !form.values.ldapBaseDn}
+                disabled={!form.values.ldapUrl || !form.values.ldapBindDn || (!form.values.ldapBindPassword && provider.ldapBindPassword !== '***MASKED***') || !form.values.ldapBaseDn}
                 leftSection={<IconUserCheck size={16} />}
               >
                 {t("Test User Auth")}

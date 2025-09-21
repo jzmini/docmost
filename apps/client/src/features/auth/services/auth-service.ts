@@ -13,7 +13,8 @@ import { IWorkspace } from "@/features/workspace/types/workspace.types.ts";
 
 export async function login(data: ILogin): Promise<ILoginResponse> {
   const response = await api.post<ILoginResponse>("/auth/login", data);
-  return response.data;
+  // Return parsed data (may be undefined on successful login without MFA)
+  return response.data as any;
 }
 
 export async function logout(): Promise<void> {
@@ -44,7 +45,8 @@ export async function passwordReset(data: IPasswordReset): Promise<{ requiresLog
 }
 
 export async function verifyUserToken(data: IVerifyUserToken): Promise<any> {
-  return api.post<any>("/auth/verify-token", data);
+  const res = await api.post<any>("/auth/verify-token", data);
+  return res.data;
 }
 
 export async function getCollabToken(): Promise<ICollabToken> {

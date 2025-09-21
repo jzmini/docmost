@@ -29,7 +29,7 @@ export default function License() {
 
       <InstallationDetails />
 
-      {workspace?.hasLicenseKey ? <LicenseDetails /> : <OssDetails />}
+      <LicenseDetails />
     </>
   );
 }

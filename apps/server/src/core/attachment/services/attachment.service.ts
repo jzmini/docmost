@@ -180,7 +180,7 @@ export class AttachmentService {
           );
         } else if (type === AttachmentType.WorkspaceIcon) {
           const workspace = await this.workspaceRepo.findById(workspaceId, {
-            trx,
+            trx: trx,
           });
 
           oldFileName = workspace.logo;

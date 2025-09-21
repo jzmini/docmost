@@ -1,9 +1,9 @@
 import { useAtom } from "jotai";
 import { currentUserAtom } from "@/features/user/atoms/current-user-atom.ts";
+import { IWorkspace } from "@/features/workspace/types/workspace.types.ts";
 
 export const useLicense = () => {
-  const [currentUser] = useAtom(currentUserAtom);
-  return { hasLicenseKey: currentUser?.workspace?.hasLicenseKey };
+  return { hasLicenseKey: true };
 };
 
 export default useLicense;
