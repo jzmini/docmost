@@ -10,3 +10,8 @@ export async function updateUser(data: Partial<IUser>): Promise<IUser> {
   const req = await api.post<IUser>("/users/update", data);
   return req.data;
 }
+
+export async function updateEmail(data: { email: string; confirmPassword: string }): Promise<IUser> {
+  const req = await api.post<IUser>("/users/update", data);
+  return req.data;
+}

@@ -14,11 +14,16 @@ import { useDisclosure } from "@mantine/hooks";
 import * as React from "react";
 import { useForm, zodResolver } from "@mantine/form";
 import { useTranslation } from "react-i18next";
+import { updateEmail } from "@/features/user/services/user-service.ts";
+import { notifications } from "@mantine/notifications";
 
 export default function ChangeEmail() {
   const { t } = useTranslation();
   const [currentUser] = useAtom(currentUserAtom);
   const [opened, { open, close }] = useDisclosure(false);
+  
+  // Check if user has a generated password (SSO/LDAP user)
+  const isSsoUser = currentUser?.user?.hasGeneratedPassword;
 
   return (
     <Group justify="space-between" wrap="nowrap" gap="xl">
@@ -29,11 +34,11 @@ export default function ChangeEmail() {
         </Text>
       </div>
 
-      {/*
-      <Button onClick={open} variant="default" style={{ whiteSpace: "nowrap" }}>
-        {t("Change email")}
-      </Button>
-      */}
+      {!isSsoUser && (
+        <Button onClick={open} variant="default" style={{ whiteSpace: "nowrap" }}>
+          {t("Change email")}
+        </Button>
+      )}
 
       <Modal opened={opened} onClose={close} title={t("Change email")} centered>
         <Text mb="md">
@@ -41,7 +46,7 @@ export default function ChangeEmail() {
             "To change your email, you have to enter your password and new email.",
           )}
         </Text>
-        <ChangeEmailForm />
+        <ChangeEmailForm onClose={close} />
       </Modal>
     </Group>
   );
@@ -56,9 +61,10 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>;
 
-function ChangeEmailForm() {
+function ChangeEmailForm({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation();
   const [isLoading, setIsLoading] = useState(false);
+  const [user, setUser] = useAtom(currentUserAtom);
 
   const form = useForm<FormValues>({
     validate: zodResolver(formSchema),
@@ -68,8 +74,34 @@ function ChangeEmailForm() {
     },
   });
 
-  function handleSubmit(data: FormValues) {
+  async function handleSubmit(data: FormValues) {
     setIsLoading(true);
+    
+    try {
+      const updatedUser = await updateEmail({
+        email: data.email,
+        confirmPassword: data.password,
+      });
+      
+      if (user) {
+        setUser({ ...user, user: updatedUser });
+      }
+      
+      notifications.show({
+        message: t("Email updated successfully"),
+        color: "green",
+      });
+      
+      onClose();
+      form.reset();
+    } catch (error: any) {
+      notifications.show({
+        message: error.response?.data?.message || t("Failed to update email"),
+        color: "red",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   return (
