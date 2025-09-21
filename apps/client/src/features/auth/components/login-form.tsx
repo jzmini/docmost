@@ -134,7 +134,21 @@ export function LoginForm() {
           } else if (response?.requiresMfaSetup) {
             navigate(APP_ROUTE.AUTH.MFA_SETUP_REQUIRED);
           } else {
-            navigate(APP_ROUTE.HOME);
+            // Check for redirect URL from shared page
+            const redirectUrl = sessionStorage.getItem('redirectAfterLogin');
+            if (redirectUrl && redirectUrl.startsWith('/share/')) {
+              sessionStorage.removeItem('redirectAfterLogin');
+              // Extract the page info from the share URL to navigate to the editable version
+              const shareMatch = redirectUrl.match(/\/share\/[^\/]+\/p\/(.+)$/);
+              if (shareMatch && shareMatch[1]) {
+                // Navigate to the editable page
+                navigate(`/p/${shareMatch[1]}`);
+              } else {
+                navigate(APP_ROUTE.HOME);
+              }
+            } else {
+              navigate(APP_ROUTE.HOME);
+            }
           }
         } catch (err: any) {
           const errorMessage = err.response?.data?.message || "Authentication failed";

@@ -5,9 +5,10 @@ import {
   Group,
   ScrollArea,
   Tooltip,
+  Button,
 } from "@mantine/core";
 import { useGetSharedPageTreeQuery } from "@/features/share/queries/share-query.ts";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import SharedTree from "@/features/share/components/shared-tree.tsx";
 import { TableOfContents } from "@/features/editor/components/table-of-contents/table-of-contents.tsx";
 import { readOnlyEditorAtom } from "@/features/editor/atoms/editor-atoms.ts";
@@ -27,7 +28,7 @@ import {
   mobileTableOfContentAsideAtom,
   tableOfContentAsideAtom,
 } from "@/features/share/atoms/sidebar-atom.ts";
-import { IconList } from "@tabler/icons-react";
+import { IconList, IconEdit } from "@tabler/icons-react";
 import { useToggleToc } from "@/features/share/hooks/use-toggle-toc.ts";
 import classes from "./share.module.css";
 import {
@@ -46,6 +47,8 @@ export default function ShareShell({
   children: React.ReactNode;
 }) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [mobileOpened] = useAtom(mobileSidebarAtom);
   const [desktopOpened] = useAtom(desktopSidebarAtom);
   const toggleMobile = useToggleSidebar(mobileSidebarAtom);
@@ -75,6 +78,15 @@ export default function ShareShell({
     setSharedPageTree(data || null);
     setSharedTreeData(treeData);
   }, [data, treeData, setSharedPageTree, setSharedTreeData]);
+
+  const handleEditClick = () => {
+    // Save the current URL as the redirect URL after login
+    const currentPath = location.pathname;
+    sessionStorage.setItem('redirectAfterLogin', currentPath);
+    
+    // Navigate to login page
+    navigate('/login');
+  };
 
   return (
     <AppShell
@@ -165,6 +177,15 @@ export default function ShareShell({
                 </ActionIcon>
               </Tooltip>
             </>
+
+            <Button
+              size="xs"
+              leftSection={<IconEdit size={16} />}
+              onClick={handleEditClick}
+              variant="default"
+            >
+              {t("Edit")}
+            </Button>
 
             <ThemeToggle />
           </Group>
