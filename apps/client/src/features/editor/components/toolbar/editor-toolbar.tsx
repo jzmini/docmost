@@ -52,6 +52,8 @@ import {
   IconChevronDown,
   IconSeparatorHorizontal,
   IconPageBreak,
+  IconArrowBackUp,
+  IconArrowForwardUp,
 } from "@tabler/icons-react";
 import { Editor } from "@tiptap/react";
 import { useTranslation } from "react-i18next";
@@ -120,6 +122,32 @@ export default function EditorToolbar({ editor, pageId }: EditorToolbarProps) {
   return (
     <Paper className={classes.toolbar} shadow="xs" p="xs" withBorder>
       <Group gap="xs">
+        {/* Undo/Redo */}
+        <ActionIcon.Group>
+          <Tooltip label={`${t("Undo")} (Ctrl+Z)`}>
+            <ActionIcon
+              variant="default"
+              size="sm"
+              onClick={() => editor.chain().focus().undo().run()}
+              disabled={!editor.can().undo()}
+            >
+              <IconArrowBackUp size={16} />
+            </ActionIcon>
+          </Tooltip>
+          <Tooltip label={`${t("Redo")} (Ctrl+Y)`}>
+            <ActionIcon
+              variant="default"
+              size="sm"
+              onClick={() => editor.chain().focus().redo().run()}
+              disabled={!editor.can().redo()}
+            >
+              <IconArrowForwardUp size={16} />
+            </ActionIcon>
+          </Tooltip>
+        </ActionIcon.Group>
+
+        <Divider orientation="vertical" />
+
         {/* Text Style Selector */}
         <Select
           value={getCurrentHeadingLevel()}
