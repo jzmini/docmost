@@ -153,15 +153,15 @@ export default function EditorToolbar({ editor, pageId }: EditorToolbarProps) {
           value={getCurrentHeadingLevel()}
           onChange={handleHeadingChange}
           data={[
-            { value: "p", label: t("Normal text") },
-            { value: "1", label: t("Heading 1") },
-            { value: "2", label: t("Heading 2") },
-            { value: "3", label: t("Heading 3") },
-            { value: "4", label: t("Heading 4") },
-            { value: "5", label: t("Heading 5") },
+            { value: "p", label: t("Text") },
+            { value: "1", label: t("H1") },
+            { value: "2", label: t("H2") },
+            { value: "3", label: t("H3") },
+            { value: "4", label: t("H4") },
+            { value: "5", label: t("H5") },
           ]}
           size="xs"
-          w={140}
+          w={80}
         />
 
         <Divider orientation="vertical" />

@@ -38,6 +38,9 @@ import {
 import { ShareSearchSpotlight } from "@/features/search/components/share-search-spotlight.tsx";
 import { shareSearchSpotlight } from "@/features/search/constants";
 import ShareBranding from '@/features/share/components/share-branding.tsx';
+import { IconCopy, IconCheck } from "@tabler/icons-react";
+import { useClipboard } from "@mantine/hooks";
+import { notifications } from "@mantine/notifications";
 
 const MemoizedSharedTree = React.memo(SharedTree);
 
@@ -86,6 +89,53 @@ export default function ShareShell({
     
     // Navigate to login page
     navigate('/login');
+  };
+
+  const handleCopyUrl = async () => {
+    const currentUrl = window.location.href;
+    
+    try {
+      // Try modern clipboard API first
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(currentUrl);
+        notifications.show({ 
+          message: t("Link copied"), 
+          icon: <IconCheck size={16} />,
+          color: "green" 
+        });
+      } else {
+        // Fallback for older browsers or non-secure contexts
+        const textArea = document.createElement("textarea");
+        textArea.value = currentUrl;
+        textArea.style.position = "fixed";
+        textArea.style.left = "-999999px";
+        textArea.style.top = "-999999px";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        
+        try {
+          const successful = document.execCommand('copy');
+          if (successful) {
+            notifications.show({ 
+              message: t("Link copied"), 
+              icon: <IconCheck size={16} />,
+              color: "green" 
+            });
+          } else {
+            throw new Error('execCommand failed');
+          }
+        } finally {
+          document.body.removeChild(textArea);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to copy URL:', error);
+      notifications.show({ 
+        message: t("Failed to copy link"), 
+        color: "red" 
+      });
+    }
   };
 
   return (
@@ -177,6 +227,17 @@ export default function ShareShell({
                 </ActionIcon>
               </Tooltip>
             </>
+
+            <Tooltip label={t("Copy link")} withArrow>
+              <ActionIcon
+                variant="default"
+                style={{ border: "none" }}
+                onClick={handleCopyUrl}
+                size="sm"
+              >
+                <IconCopy size={20} stroke={2} />
+              </ActionIcon>
+            </Tooltip>
 
             <Button
               size="xs"
