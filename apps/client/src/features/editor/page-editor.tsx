@@ -26,6 +26,7 @@ import {
 } from "@/features/comment/atoms/comment-atom";
 import CommentDialog from "@/features/comment/components/comment-dialog";
 import { EditorBubbleMenu } from "@/features/editor/components/bubble-menu/bubble-menu";
+import { useMarkdownCopyNotification } from "@/features/editor/components/markdown-copy-notification";
 import TableCellMenu from "@/features/editor/components/table/table-cell-menu.tsx";
 import TableMenu from "@/features/editor/components/table/table-menu.tsx";
 import ImageMenu from "@/features/editor/components/image/image-menu.tsx";
@@ -64,6 +65,7 @@ export default function PageEditor({
   editable,
   content,
 }: PageEditorProps) {
+  useMarkdownCopyNotification();
   const collaborationURL = useCollaborationUrl();
   const [currentUser] = useAtom(currentUserAtom);
   const [, setEditor] = useAtom(pageEditorAtom);

@@ -75,6 +75,7 @@ import { ReactNodeViewRenderer } from "@tiptap/react";
 import MentionView from "@/features/editor/components/mention/mention-view.tsx";
 import i18n from "@/i18n.ts";
 import { MarkdownClipboard } from "@/features/editor/extensions/markdown-clipboard.ts";
+import { CopyMarkdownExtension } from "@/features/editor/extensions/copy-markdown.ts";
 import EmojiCommand from "./emoji-command";
 import { CharacterCount } from "@tiptap/extension-character-count";
 import { countWords } from "alfaaz";
@@ -222,6 +223,7 @@ export const mainExtensions = [
   MarkdownClipboard.configure({
     transformPastedText: true,
   }),
+  CopyMarkdownExtension,
   CharacterCount.configure({
     wordCounter: (text) => countWords(text),
   }),

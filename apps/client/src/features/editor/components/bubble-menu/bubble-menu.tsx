@@ -12,10 +12,13 @@ import {
   IconStrikethrough,
   IconUnderline,
   IconMessage,
+  IconMarkdown,
+  IconCheck,
 } from "@tabler/icons-react";
 import clsx from "clsx";
 import classes from "./bubble-menu.module.css";
 import { ActionIcon, rem, Tooltip } from "@mantine/core";
+import { notifications } from "@mantine/notifications";
 import { ColorSelector } from "./color-selector";
 import { NodeSelector } from "./node-selector";
 import { TextAlignmentSelector } from "./text-alignment-selector";
@@ -28,6 +31,8 @@ import { v7 as uuid7 } from "uuid";
 import { isCellSelection, isTextSelected } from "@docmost/editor-ext";
 import { LinkSelector } from "@/features/editor/components/bubble-menu/link-selector.tsx";
 import { useTranslation } from "react-i18next";
+import { htmlToMarkdown } from "@/features/editor/utils/turndown-client";
+import { DOMSerializer } from "@tiptap/pm/model";
 
 export interface BubbleMenuItem {
   name: string;
@@ -135,6 +140,70 @@ export const EditorBubbleMenu: FC<EditorBubbleMenuProps> = (props) => {
   const [isTextAlignmentSelectorOpen, setIsTextAlignmentOpen] = useState(false);
   const [isColorSelectorOpen, setIsColorSelectorOpen] = useState(false);
   const [isLinkSelectorOpen, setIsLinkSelectorOpen] = useState(false);
+  const [isMarkdownCopied, setIsMarkdownCopied] = useState(false);
+
+  // Reset copy state when bubble menu is hidden
+  useEffect(() => {
+    const handleSelectionChange = () => {
+      setIsMarkdownCopied(false);
+    };
+    
+    props.editor?.on('selectionUpdate', handleSelectionChange);
+    
+    return () => {
+      props.editor?.off('selectionUpdate', handleSelectionChange);
+    };
+  }, [props.editor]);
+
+  // Function to copy selected content as markdown
+  const handleCopyMarkdown = async () => {
+    if (!props.editor) return;
+    
+    try {
+      const { state } = props.editor;
+      const { from, to } = state.selection;
+      const selectedContent = state.doc.slice(from, to);
+      
+      if (selectedContent.content.size === 0) {
+        return;
+      }
+      
+      // Create a temporary document with the selected content
+      const tempDoc = state.schema.topNodeType.create(null, selectedContent.content);
+      
+      // Get HTML from the temporary document
+      const div = document.createElement('div');
+      const fragment = DOMSerializer.fromSchema(state.schema).serializeFragment(tempDoc.content);
+      div.appendChild(fragment);
+      
+      // Convert HTML to Markdown
+      const markdown = htmlToMarkdown(div.innerHTML);
+      
+      // Copy to clipboard
+      await navigator.clipboard.writeText(markdown);
+      
+      // Show success state
+      setIsMarkdownCopied(true);
+      setTimeout(() => {
+        setIsMarkdownCopied(false);
+      }, 2000);
+      
+      // Show notification
+      notifications.show({
+        message: t("Selected content has been copied as Markdown"),
+        color: "teal",
+        icon: <IconCheck size={16} />,
+        autoClose: 2000,
+      });
+    } catch (error) {
+      console.error('Failed to copy markdown:', error);
+      notifications.show({
+        message: t("Failed to copy as Markdown. Please try again."),
+        color: "red",
+        autoClose: 3000,
+      });
+    }
+  };
 
   return (
     <BubbleMenu {...bubbleMenuProps}>
@@ -201,6 +270,24 @@ export const EditorBubbleMenu: FC<EditorBubbleMenuProps> = (props) => {
             setIsLinkSelectorOpen(false);
           }}
         />
+
+        <Tooltip
+          label={isMarkdownCopied ? t("Copied as Markdown") : t("Copy as Markdown")}
+          withArrow
+          position="top"
+        >
+          <ActionIcon
+            variant="default"
+            size="lg"
+            radius="0"
+            aria-label={t("Copy as Markdown")}
+            style={{ border: "none" }}
+            onClick={handleCopyMarkdown}
+            color={isMarkdownCopied ? "teal" : undefined}
+          >
+            {isMarkdownCopied ? <IconCheck size={16} stroke={2} /> : <IconMarkdown size={16} stroke={2} />}
+          </ActionIcon>
+        </Tooltip>
 
         <ActionIcon
           variant="default"
