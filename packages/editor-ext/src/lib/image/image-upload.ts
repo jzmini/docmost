@@ -66,6 +66,7 @@ export const handleImageUpload =
     const validated = validateFn?.(file);
     // @ts-ignore
     if (!validated) return;
+    
     // A fresh object to act as the ID for this upload
     const id = {};
 

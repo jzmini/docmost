@@ -172,5 +172,5 @@ export async function uploadFile(
     },
   });
 
-  return req as unknown as IAttachment;
+  return req.data;
 }

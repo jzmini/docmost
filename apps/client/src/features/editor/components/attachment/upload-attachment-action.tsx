@@ -12,7 +12,7 @@ export const uploadAttachmentAction = handleAttachmentUpload({
     } catch (err) {
       notifications.show({
         color: "red",
-        message: err?.response.data.message,
+        message: err?.response?.data?.message,
       });
       throw err;
     }

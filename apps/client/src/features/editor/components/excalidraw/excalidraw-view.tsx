@@ -175,6 +175,9 @@ export default function ExcalidrawView(props: NodeViewProps) {
               selected ? "ProseMirror-selectednode" : "",
               "alignCenter",
             )}
+            // Required to send cookies with image requests for authenticated endpoints
+            // @ts-ignore - crossOrigin prop not in Mantine Image types
+            crossOrigin="use-credentials"
           />
 
           {selected && editor.isEditable && (

@@ -377,13 +377,18 @@ export default function EditorToolbar({ editor, pageId }: EditorToolbarProps) {
                 const input = document.createElement('input');
                 input.type = 'file';
                 input.accept = 'image/*';
+                input.style.display = 'none';
+                
                 input.onchange = (event) => {
                   const file = (event.target as HTMLInputElement).files?.[0];
                   if (file && editor) {
                     const pos = editor.state.selection.from;
                     uploadImageAction(file, editor.view, pos, pageId);
                   }
+                  document.body.removeChild(input);
                 };
+                
+                document.body.appendChild(input);
                 input.click();
               }}
             >
@@ -395,13 +400,18 @@ export default function EditorToolbar({ editor, pageId }: EditorToolbarProps) {
                 const input = document.createElement('input');
                 input.type = 'file';
                 input.accept = 'video/*';
+                input.style.display = 'none';
+                
                 input.onchange = (event) => {
                   const file = (event.target as HTMLInputElement).files?.[0];
                   if (file && editor) {
                     const pos = editor.state.selection.from;
                     uploadVideoAction(file, editor.view, pos, pageId);
                   }
+                  document.body.removeChild(input);
                 };
+                
+                document.body.appendChild(input);
                 input.click();
               }}
             >
@@ -412,13 +422,18 @@ export default function EditorToolbar({ editor, pageId }: EditorToolbarProps) {
               onClick={() => {
                 const input = document.createElement('input');
                 input.type = 'file';
+                input.style.display = 'none';
+                
                 input.onchange = (event) => {
                   const file = (event.target as HTMLInputElement).files?.[0];
                   if (file && editor) {
                     const pos = editor.state.selection.from;
                     uploadAttachmentAction(file, editor.view, pos, pageId);
                   }
+                  document.body.removeChild(input);
                 };
+                
+                document.body.appendChild(input);
                 input.click();
               }}
             >

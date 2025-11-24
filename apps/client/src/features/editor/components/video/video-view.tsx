@@ -21,6 +21,7 @@ export default function VideoView(props: NodeViewProps) {
         width={width}
         controls
         src={getFileUrl(src)}
+        crossOrigin="use-credentials" // Required to send cookies with video requests
         className={clsx(selected ? "ProseMirror-selectednode" : "", alignClass)}
         style={{ display: "block" }}
       />
