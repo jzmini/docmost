@@ -23,23 +23,45 @@ This fork includes the following enhancements over the original Docmost v0.23.2:
 - **LDAP group sync** that automatically manages group membership
 - **Improved user search** supporting LDAP usernames and email addresses
 
+### ✨ Editor Enhancements
+- **WYSIWYG Toolbar** - Rich visual editing toolbar for better user experience
+  - Text formatting (Bold, Italic, Underline, Strikethrough)
+  - Headings (H1, H2, H3) with easy dropdown selection
+  - Lists (Bullet, Numbered, Task/Checkbox)
+  - Insert menu for Media (Images, Videos, Files), Diagrams (Excalidraw, Draw.io, Mermaid), and Embeds
+  - Table operations and formatting options
+  - Text alignment and color controls
+  - Undo/Redo buttons for quick editing
+  
+- **Copy as Markdown** - Right-click on selected content to copy as Markdown format
+  - Preserves formatting, links, and structure
+  - Useful for exporting content to other Markdown-compatible tools
+  
+- **Enhanced Media Upload** - Seamless image, video, and file insertion
+  - Click-to-upload interface with file picker dialog
+  - Inline preview and display of uploaded media
+  - Support for authenticated media endpoints with proper credential handling
+
 ### 🛠️ UI/UX Improvements
 - **Edit button on shared pages** - allows viewers to quickly login and edit
 - **Smart redirect after login** - automatically returns to the page you were viewing
 - **Email change capability** for user profiles
 - **Improved member search** in spaces (case-insensitive, supports LDAP usernames)
 - **Fixed clipboard copy** functionality for sharing links
+- **Fixed toolbar width** issues in the editor
 
-### 🐛 Bug Fixes
-- Fixed public page sharing display issues
-- Fixed LDAP group synchronization removing users incorrectly
-- Fixed authentication isolation between local and LDAP users
+### 🐛 Stability & Compatibility Improvements
+- Enhanced public page sharing reliability
+- Improved LDAP group synchronization accuracy
+- Better authentication isolation between local and LDAP users
+- Optimized media loading with proper credential management
 
-### 🏗️ Technical Changes
-- Rebased on upstream main branch (includes all updates up to v0.23.2)
-- Database migrations for LDAP support
-- Enhanced error handling for authentication
-- Added `build-local-image.sh` script for easy local Docker image building
+### 🏗️ Developer Experience
+- **Easy local builds** with `build-local-image.sh` script for custom Docker images
+- **Mirror registry support** for building behind corporate firewalls
+- **Based on Docmost v0.23.2** with all upstream features and updates
+- **Enhanced API handling** for cleaner file upload integration
+- **Improved TypeScript types** for better development experience
 
 ## Getting started
 
